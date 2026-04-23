@@ -12,7 +12,7 @@ export async function GET() {
     `&response_type=code` +
     `&scope=openid` +
     `&redirect_uri=${encodeURIComponent(
-      process.env.KEYCLOAK_REDIRECT_URL!
+      process.env.KEYCLOAK_REDIRECT_URI!
     )}` +
     `&prompt=login`;
 

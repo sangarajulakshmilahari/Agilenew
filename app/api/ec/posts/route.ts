@@ -1,0 +1,88 @@
+import { NextRequest, NextResponse } from "next/server";
+import pool from "@/config/db";
+import { randomUUID } from "crypto";
+import { writeFile, mkdir } from "fs/promises";
+import { join } from "path";
+
+export async function POST(req: NextRequest) {
+  try {
+    // 🔐 Get user from token
+    const token = req.cookies.get("access_token")?.value;
+    if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const decoded = JSON.parse(
+      Buffer.from(token.split(".")[1], "base64").toString()
+    );
+
+    const keycloakId = decoded.sub;
+
+    // 🔥 Get userId from DB
+    const [userRows]: any = await pool.execute(
+      "SELECT userid FROM users WHERE keycloak_id = ?",
+      [keycloakId]
+    );
+
+    if (userRows.length === 0) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    const userid = userRows[0].userid;
+
+    // Parse FormData
+    const formData = await req.formData();
+    const content = formData.get("content") as string;
+    const category = formData.get("category") as string;
+    const title = formData.get("title") as string;
+    const files = formData.getAll("images") as File[];
+
+    if (!content) {
+      return NextResponse.json({ error: "Content is required" }, { status: 400 });
+    }
+
+    const postId = randomUUID();
+
+    // ✅ Insert post
+    await pool.execute(
+      `INSERT INTO ec_posts (id, userid, category, title, content)
+       VALUES (?, ?, ?, ?, ?)`,
+      [postId, userid, category || "update", title || null, content]
+    );
+
+    // ✅ Handle image uploads (if any)
+    if (files && files.length > 0) {
+      const uploadDir = join(process.cwd(), "public", "uploads", "posts");
+      
+      try {
+        await mkdir(uploadDir, { recursive: true });
+      } catch (err) {
+        // Directory might already exist
+      }
+
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const timestamp = Date.now();
+        const filename = `${postId}-${timestamp}-${i}-${file.name}`;
+        const filepath = join(uploadDir, filename);
+        const publicPath = `/uploads/posts/${filename}`;
+
+        // Write file to disk
+        const buffer = await file.arrayBuffer();
+        await writeFile(filepath, Buffer.from(buffer));
+
+        // Insert image record
+        await pool.execute(
+          `INSERT INTO ec_post_images 
+          (id, post_id, image_path, display_order)
+          VALUES (?, ?, ?, ?)`,
+          [randomUUID(), postId, publicPath, i]
+        );
+      }
+    }
+
+    return NextResponse.json({ message: "Post created", postId });
+
+  } catch (err) {
+    console.error("Error creating post:", err);
+    return NextResponse.json({ error: "Server error", details: String(err) }, { status: 500 });
+  }
+}
