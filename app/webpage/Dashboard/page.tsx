@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 import Sidebar from "../Components/sidebar/sidebar";
 import Centercontent from "../Components/centercontent/centercontent";
@@ -22,21 +22,15 @@ function DashboardLoader() {
           flex-direction: column;
           align-items: center;
           justify-content: center;
-          background: linear-gradient(135deg, #0f0c29, #1a1a40, #24243e);
-          color: #e5e7eb;
+          background: #f8f4ef;
+          color: var(--ad-navy);
           gap: 18px;
         }
         .loader-ring {
           width: 56px;
           height: 56px;
           border-radius: 50%;
-          background: conic-gradient(
-            from 0deg,
-            transparent 0%,
-            #7c3aed 30%,
-            #a78bfa 60%,
-            transparent 100%
-          );
+          background: #1f3a68;
           padding: 4px;
           animation: spin 1.2s linear infinite;
           display: flex;
@@ -47,12 +41,12 @@ function DashboardLoader() {
           width: 100%;
           height: 100%;
           border-radius: 50%;
-          background: #1a1a40;
+          background: #f8f4ef;
         }
         p {
           font-size: 14px;
           letter-spacing: 0.5px;
-          opacity: 0.7;
+          opacity: 0.85;
         }
         @keyframes spin {
           to {
@@ -64,34 +58,145 @@ function DashboardLoader() {
   );
 }
 
+function ParticleNetwork({
+  color = "31, 58, 104",
+  darkColor = "248, 244, 239",
+  count = 72,
+  maxDist = 150,
+}: {
+  color?: string;
+  darkColor?: string;
+  count?: number;
+  maxDist?: number;
+}) {
+  const ref = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = ref.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    let raf: number;
+    type Pt = { x: number; y: number; vx: number; vy: number; r: number };
+    let pts: Pt[] = [];
+
+    const resize = () => {
+      canvas.width = canvas.offsetWidth;
+      canvas.height = canvas.offsetHeight;
+    };
+
+    const init = () => {
+      resize();
+      pts = Array.from({ length: count }, () => ({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        vx: (Math.random() - 0.5) * 0.24,
+        vy: (Math.random() - 0.5) * 0.24,
+        r: Math.random() * 1.2 + 0.5,
+      }));
+    };
+
+    const prefersReduced =
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    const tick = () => {
+      if (prefersReduced) return;
+      const w = canvas.width;
+      const h = canvas.height;
+      ctx.clearRect(0, 0, w, h);
+
+      const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+      const c = isDark ? darkColor : color;
+
+      for (const p of pts) {
+        p.x += p.vx;
+        p.y += p.vy;
+        if (p.x < 0 || p.x > w) p.vx *= -1;
+        if (p.y < 0 || p.y > h) p.vy *= -1;
+      }
+
+      for (let i = 0; i < pts.length; i++) {
+        for (let j = i + 1; j < pts.length; j++) {
+          const dx = pts[i].x - pts[j].x;
+          const dy = pts[i].y - pts[j].y;
+          const d = Math.sqrt(dx * dx + dy * dy);
+          if (d < maxDist) {
+            ctx.beginPath();
+            ctx.moveTo(pts[i].x, pts[i].y);
+            ctx.lineTo(pts[j].x, pts[j].y);
+            ctx.strokeStyle = `rgba(${c}, ${(1 - d / maxDist) * 0.028})`;
+            ctx.lineWidth = 0.5;
+            ctx.stroke();
+          }
+        }
+      }
+
+      for (const p of pts) {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(${c}, 0.055)`;
+        ctx.fill();
+      }
+
+      raf = requestAnimationFrame(tick);
+    };
+
+    init();
+    if (!prefersReduced) {
+      tick();
+    } else {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+
+    const ro = new ResizeObserver(() => init());
+    ro.observe(canvas);
+
+    return () => {
+      cancelAnimationFrame(raf);
+      ro.disconnect();
+    };
+  }, [count, color, darkColor, maxDist]);
+
+  return <canvas ref={ref} className="bg-network" />;
+}
+
+type DashboardView =
+  | "home"
+  | "holiday"
+  | "events"
+  | "learning"
+  | "articles"
+  | "corner";
+
 export default function Dashboard() {
   const [mounted, setMounted] = useState(false);
-  const [activeView, setActiveView] = useState<
-    "home" | "holiday" | "events" | "learning" | "articles" | "corner"
-  >("home");
+  const [activeView, setActiveView] = useState<DashboardView>("home");
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
+    const id = window.setTimeout(() => setMounted(true), 0);
+    return () => window.clearTimeout(id);
   }, []);
 
-  // Close mobile sidebar when view changes
-  useEffect(() => {
+  const handleViewChange = (view: DashboardView) => {
+    setActiveView(view);
     setMobileSidebarOpen(false);
-  }, [activeView]);
+  };
 
   if (!mounted) return <DashboardLoader />;
 
   return (
     <>
-      <div className="dashboard-page">
+      <div className={`dashboard-page ${sidebarOpen ? "sidebar-open" : "sidebar-closed"}`}>
         {/* Animated background */}
         <div className="bg-layer">
           <div className="bg-blob blob-1" />
           <div className="bg-blob blob-2" />
           <div className="bg-blob blob-3" />
-          <div className="bg-grid" />
+          <ParticleNetwork />
           <div className="bg-shimmer" />
         </div>
 
@@ -118,7 +223,7 @@ export default function Dashboard() {
           >
             <Sidebar
               activeView={activeView}
-              onChange={setActiveView}
+              onChange={handleViewChange}
               open={sidebarOpen}
               setOpen={setSidebarOpen}
             />
@@ -167,6 +272,15 @@ export default function Dashboard() {
           position: relative;
         }
 
+        .dashboard-page.sidebar-open .dashboard-header {
+          margin-left: var(--sidebar-w-open);
+          width: calc(100% - var(--sidebar-w-open));
+        }
+        .dashboard-page.sidebar-closed .dashboard-header {
+          margin-left: var(--sidebar-w-closed);
+          width: calc(100% - var(--sidebar-w-closed));
+        }
+
         /* ===== ANIMATED BACKGROUND ===== */
         .bg-layer {
           position: fixed;
@@ -176,27 +290,14 @@ export default function Dashboard() {
           overflow: hidden;
         }
 
-        .bg-grid {
+        .bg-network {
           position: absolute;
           inset: 0;
-          background-image:
-            linear-gradient(rgba(124, 58, 237, 0.03) 1px, transparent 1px),
-            linear-gradient(
-              90deg,
-              rgba(124, 58, 237, 0.03) 1px,
-              transparent 1px
-            );
-          background-size: 48px 48px;
-          mask-image: radial-gradient(
-            ellipse at 50% 30%,
-            black 30%,
-            transparent 70%
-          );
-          -webkit-mask-image: radial-gradient(
-            ellipse at 50% 30%,
-            black 30%,
-            transparent 70%
-          );
+          width: 100%;
+          height: 100%;
+          opacity: 0.35;
+          mask-image: radial-gradient(ellipse at 52% 8%, rgba(0, 0, 0, 0.85) 42%, transparent 92%);
+          -webkit-mask-image: radial-gradient(ellipse at 52% 8%, rgba(0, 0, 0, 0.85) 42%, transparent 92%);
         }
 
         .bg-shimmer {
@@ -205,15 +306,8 @@ export default function Dashboard() {
           left: -50%;
           width: 200%;
           height: 200%;
-          background: conic-gradient(
-            from 0deg at 50% 50%,
-            transparent 0deg,
-            rgba(124, 58, 237, 0.03) 60deg,
-            transparent 120deg,
-            rgba(99, 102, 241, 0.02) 240deg,
-            transparent 360deg
-          );
-          animation: shimmerRotate 40s linear infinite;
+          background: transparent;
+          animation: none;
         }
 
         @keyframes shimmerRotate {
@@ -225,14 +319,13 @@ export default function Dashboard() {
         .bg-blob {
           position: absolute;
           border-radius: 50%;
-          filter: blur(100px);
-          opacity: 0.3;
+          display: block;
         }
 
         .blob-1 {
           width: 520px;
           height: 520px;
-          background: radial-gradient(circle, #c084fc, transparent 70%);
+          background: radial-gradient(circle, rgba(242, 101, 34, 0.03), transparent 70%);
           top: -140px;
           right: -100px;
           animation: blobA 22s ease-in-out infinite;
@@ -240,7 +333,7 @@ export default function Dashboard() {
         .blob-2 {
           width: 420px;
           height: 420px;
-          background: radial-gradient(circle, #60a5fa, transparent 70%);
+          background: radial-gradient(circle, rgba(31, 58, 104, 0.024), transparent 70%);
           bottom: -100px;
           left: -80px;
           animation: blobA 28s ease-in-out infinite reverse;
@@ -248,11 +341,12 @@ export default function Dashboard() {
         .blob-3 {
           width: 320px;
           height: 320px;
-          background: radial-gradient(circle, #a78bfa, transparent 70%);
+          background: radial-gradient(circle, rgba(242, 101, 34, 0.02), transparent 70%);
           top: 45%;
           left: 38%;
           animation: blobA 34s ease-in-out infinite 4s;
         }
+
 
         @keyframes blobA {
           0%,
@@ -293,42 +387,55 @@ export default function Dashboard() {
           min-height: 0; /* key for nested scroll */
           width: 100%;
           gap: 16px;
-          padding: 14px;
+          padding: 16px;
           position: relative;
-          z-index: 1;
+          z-index: auto;
           overflow: hidden; /* no scroll on grid itself */
-          transition: grid-template-columns 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          transition:
+            grid-template-columns var(--motion-base) var(--motion-ease),
+            margin-left var(--motion-base) var(--motion-ease);
           align-items: stretch;
           justify-items: stretch;
         }
 
         .dashboard-layout.sidebar-open {
-          grid-template-columns: var(--sidebar-w-open) minmax(0, 1fr) var(
-              --right-w
-            );
+          grid-template-columns: minmax(0, 1fr) var(--right-w);
+          margin-left: var(--sidebar-w-open);
+          width: calc(100% - var(--sidebar-w-open));
         }
         .dashboard-layout.sidebar-closed {
-          grid-template-columns: var(--sidebar-w-closed) minmax(0, 1fr) var(
-              --right-w
-            );
+          grid-template-columns: minmax(0, 1fr) var(--right-w);
+          margin-left: var(--sidebar-w-closed);
+          width: calc(100% - var(--sidebar-w-closed));
         }
         .dashboard-layout.sidebar-open.no-right {
-          grid-template-columns: var(--sidebar-w-open) minmax(0, 1fr);
+          grid-template-columns: minmax(0, 1fr);
+          margin-left: var(--sidebar-w-open);
+          width: calc(100% - var(--sidebar-w-open));
         }
         .dashboard-layout.sidebar-closed.no-right {
-          grid-template-columns: var(--sidebar-w-closed) minmax(0, 1fr);
+          grid-template-columns: minmax(0, 1fr);
+          margin-left: var(--sidebar-w-closed);
+          width: calc(100% - var(--sidebar-w-closed));
         }
 
         /* --- Sidebar column --- */
         .sidebar-col {
-          height: 100%;
-          min-height: 0;
+          position: fixed;
+          top: 0;
+          left: 0;
+          height: 100vh;
+          min-height: 100vh;
           overflow: visible;
-          position: relative;
-          z-index: 2;
+          z-index: 120;
           display: flex;
           flex-direction: column;
-          align-self: stretch;
+        }
+        .dashboard-layout.sidebar-open .sidebar-col {
+          width: var(--sidebar-w-open);
+        }
+        .dashboard-layout.sidebar-closed .sidebar-col {
+          width: var(--sidebar-w-closed);
         }
 
         /* --- Center scroll wrapper --- */
@@ -362,11 +469,11 @@ export default function Dashboard() {
           background: transparent;
         }
         .center-column::-webkit-scrollbar-thumb {
-          background: rgba(124, 58, 237, 0.18);
+          background: rgba(31, 58, 104, 0.22);
           border-radius: 10px;
         }
         .center-column::-webkit-scrollbar-thumb:hover {
-          background: rgba(124, 58, 237, 0.32);
+          background: rgba(242, 101, 34, 0.42);
         }
 
         .scroll-spacer {
@@ -393,11 +500,11 @@ export default function Dashboard() {
           backdrop-filter: blur(16px);
           -webkit-backdrop-filter: blur(16px);
           border: 1px solid var(--glass-border);
-          border-radius: var(--radius-lg);
+          border-radius: 12px;
           box-shadow: var(--shadow-sm);
           transition:
-            box-shadow 0.3s ease,
-            transform 0.3s ease;
+            box-shadow var(--motion-base) var(--motion-ease),
+            transform var(--motion-base) var(--motion-ease);
         }
         .glass-card:hover {
           box-shadow: var(--shadow-md);
@@ -431,6 +538,12 @@ export default function Dashboard() {
             grid-template-rows: 1fr;
             gap: 0;
             padding: 8px;
+            margin-left: 0;
+          }
+
+          .dashboard-page.sidebar-open .dashboard-header,
+          .dashboard-page.sidebar-closed .dashboard-header {
+            margin-left: 0;
           }
 
           /* Hide sidebar from flow, show as overlay when mobile-open */
@@ -482,6 +595,15 @@ export default function Dashboard() {
           }
           .dashboard-layout.sidebar-closed.no-right {
             grid-template-columns: var(--sidebar-w-closed) minmax(0, 1fr);
+          }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          *,
+          *::before,
+          *::after {
+            animation: none !important;
+            transition: none !important;
           }
         }
 

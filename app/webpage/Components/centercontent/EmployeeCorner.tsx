@@ -1,11 +1,23 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { Trophy, Flame, Medal } from "lucide-react";
+import {
+  Trophy,
+  Flame,
+  Medal,
+  ThumbsUp,
+  MoreHorizontal,
+  Trash2,
+} from "lucide-react";
 
 /* ─────────────────────── TYPES ─────────────────────── */
 
-type PostCategory = "update" | "blog" | "tech" | "photography" | "announcement";
+type FeedFilterKey =
+  | "recent"
+  | "mostLiked"
+  | "mostDiscussed"
+  | "saved"
+  | "myPosts";
 
 type CommentType = {
   id: string;
@@ -25,7 +37,6 @@ type Post = {
   initials: string;
   gradient: string;
   role: string;
-  category: PostCategory;
   title?: string;
   content: string;
   hasImage?: boolean;
@@ -38,45 +49,53 @@ type Post = {
   comments: CommentType[];
 };
 
-type FilterKey = PostCategory | "all";
+type FeedFilterConfig = { label: string; color: string; bg: string };
 
-type CategoryConfig = { label: string; color: string; bg: string };
+type ToastType = "success" | "error";
+
+type ToastMessage = {
+  id: number;
+  message: string;
+  type: ToastType;
+};
+
+type SharePopoverState = {
+  postId: string;
+  url: string;
+};
 
 /* ─────────────────────── DATA ─────────────────────── */
 
-const CATEGORIES: Record<string, CategoryConfig> = {
-  all: { label: "All Posts", color: "#7c3aed", bg: "rgba(124,58,237,0.1)" },
-  update: { label: "Update", color: "#7c3aed", bg: "rgba(124,58,237,0.1)" },
-  blog: { label: "Blog", color: "#0ea5e9", bg: "rgba(14,165,233,0.1)" },
-  tech: { label: "Tech", color: "#10b981", bg: "rgba(16,185,129,0.1)" },
-  photography: {
-    label: "Photography",
-    color: "#f59e0b",
-    bg: "rgba(245,158,11,0.1)",
+const FEED_FILTERS: Record<FeedFilterKey, FeedFilterConfig> = {
+  recent: { label: "Recent", color: "#F26522", bg: "rgba(242,101,34,0.14)" },
+  mostLiked: {
+    label: "Most Liked",
+    color: "#1F3A68",
+    bg: "rgba(31,58,104,0.14)",
   },
-  announcement: {
-    label: "Announcement",
-    color: "#ef4444",
-    bg: "rgba(239,68,68,0.1)",
+  mostDiscussed: {
+    label: "Most Discussed",
+    color: "#475569",
+    bg: "rgba(71,85,105,0.14)",
   },
+  saved: { label: "Saved", color: "#1F3A68", bg: "rgba(31,58,104,0.14)" },
+  myPosts: {
+    label: "My Posts",
+    color: "#F26522",
+    bg: "rgba(242,101,34,0.14)",
+  },
+};
+
+const FEED_MODE_QUERY_MAP: Record<FeedFilterKey, string> = {
+  recent: "recent",
+  mostLiked: "most-liked",
+  mostDiscussed: "most-discussed",
+  saved: "saved",
+  myPosts: "my-posts",
 };
 
 /* ── SVG Icons ── */
 
-const Heart = ({ filled }: { filled: boolean }) => (
-  <svg
-    width="16"
-    height="16"
-    viewBox="0 0 24 24"
-    fill={filled ? "#ef4444" : "none"}
-    stroke={filled ? "#ef4444" : "currentColor"}
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-  </svg>
-);
 const CommentIcon = () => (
   <svg
     width="16"
@@ -114,8 +133,8 @@ const BookmarkIcon = ({ filled }: { filled: boolean }) => (
     width="16"
     height="16"
     viewBox="0 0 24 24"
-    fill={filled ? "#7c3aed" : "none"}
-    stroke={filled ? "#7c3aed" : "currentColor"}
+    fill={filled ? "#F26522" : "none"}
+    stroke={filled ? "#F26522" : "currentColor"}
     strokeWidth="2"
     strokeLinecap="round"
     strokeLinejoin="round"
@@ -152,6 +171,22 @@ const ImageSvg = () => (
     <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
     <circle cx="8.5" cy="8.5" r="1.5" />
     <polyline points="21 15 16 10 5 21" />
+  </svg>
+);
+
+const CopyIcon = () => (
+  <svg
+    width="14"
+    height="14"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
   </svg>
 );
 
@@ -222,18 +257,14 @@ const Avatar = ({
 
 export default function EmployeeCorner() {
   const [posts, setPosts] = useState<Post[]>([]);
-  const [filter, setFilter] = useState<FilterKey>("all");
-  const [showBookmarked, setShowBookmarked] = useState(false);
+  const [feedFilter, setFeedFilter] = useState<FeedFilterKey>("recent");
   const [composing, setComposing] = useState(false);
   const [postText, setPostText] = useState("");
   const [postTitle, setPostTitle] = useState("");
-  const [postCat, setPostCat] = useState<PostCategory>("update");
-  const [catOpen, setCatOpen] = useState(false);
-  const [catPos, setCatPos] = useState({ top: 0, left: 0 });
   const [openComments, setOpenComments] = useState<Record<string, boolean>>({});
   const [commentTexts, setCommentTexts] = useState<Record<string, string>>({});
   const taRef = useRef<HTMLTextAreaElement>(null);
-  const catBtnRef = useRef<HTMLButtonElement>(null);
+  const toastTimersRef = useRef<number[]>([]);
   const [images, setImages] = useState<File[]>([]);
   const [user, setUser] = useState<any>(null);
   const [topUsers, setTopUsers] = useState<any[]>([]);
@@ -241,6 +272,14 @@ export default function EmployeeCorner() {
   const [showRepliesMap, setShowRepliesMap] = useState<Record<string, boolean>>(
     {},
   );
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const [sharePopover, setSharePopover] = useState<SharePopoverState | null>(null);
+  const sharePopoverRef = useRef<HTMLDivElement | null>(null);
+  const [openPostMenuId, setOpenPostMenuId] = useState<string | null>(null);
+  const postMenuRef = useRef<HTMLDivElement | null>(null);
+  const postMenuButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const [deletePostId, setDeletePostId] = useState<string | null>(null);
+  const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
 
   const getInitials = (name: string) => {
     return name
@@ -250,16 +289,10 @@ export default function EmployeeCorner() {
       .toUpperCase();
   };
 
-  const handleCatToggle = () => {
-    if (catBtnRef.current) {
-      const rect = catBtnRef.current.getBoundingClientRect();
-      setCatPos({
-        top: rect.bottom + 8,
-        left: rect.left,
-      });
-    }
-    setCatOpen(!catOpen);
-  };
+  const moderatorRoles = new Set(["hr", "management"]);
+  const canModerateAnyPost = Array.isArray(user?.roles)
+    ? user.roles.some((role: string) => moderatorRoles.has(role.toLowerCase()))
+    : false;
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files) return;
@@ -296,16 +329,6 @@ export default function EmployeeCorner() {
   }, []);
 
   useEffect(() => {
-    const handleClickOutside = () => {
-      if (catOpen) setCatOpen(false);
-    };
-    if (catOpen) {
-      document.addEventListener("click", handleClickOutside);
-      return () => document.removeEventListener("click", handleClickOutside);
-    }
-  }, [catOpen]);
-
-  useEffect(() => {
     fetch("/api/ec/top-contributors")
       .then((res) => res.json())
       .then((data) => setTopUsers(data))
@@ -320,11 +343,63 @@ export default function EmployeeCorner() {
   }, [postText]);
 
   useEffect(() => {
-    fetchPosts();
+    return () => {
+      toastTimersRef.current.forEach((timerId) => window.clearTimeout(timerId));
+    };
   }, []);
 
-  const fetchPosts = async () => {
-    const res = await fetch("/api/ec/posts/feed");
+  useEffect(() => {
+    if (!sharePopover) return;
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setSharePopover(null);
+      }
+    };
+
+    document.addEventListener("keydown", handleEscape);
+
+    return () => {
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [sharePopover]);
+
+  useEffect(() => {
+    if (!openPostMenuId) return;
+
+    const handleOutsideClick = (event: MouseEvent) => {
+      const target = event.target as Node;
+      const clickedInsideMenu = postMenuRef.current?.contains(target);
+      const clickedMenuButton = Object.values(postMenuButtonRefs.current).some((btn) =>
+        btn?.contains(target),
+      );
+
+      if (!clickedInsideMenu && !clickedMenuButton) {
+        setOpenPostMenuId(null);
+      }
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setOpenPostMenuId(null);
+      }
+    };
+
+    document.addEventListener("mousedown", handleOutsideClick);
+    document.addEventListener("keydown", handleEscape);
+
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [openPostMenuId]);
+
+  useEffect(() => {
+    fetchPosts(feedFilter);
+  }, [feedFilter]);
+
+  const fetchPosts = async (mode: FeedFilterKey = feedFilter) => {
+    const res = await fetch(`/api/ec/posts/feed?mode=${FEED_MODE_QUERY_MAP[mode]}`);
     const data = await res.json();
 
     const mapComments = (comments: any[]): any[] =>
@@ -332,7 +407,7 @@ export default function EmployeeCorner() {
         id: c.id,
         name: c.name,
         initials: getInitials(c.name),
-        gradient: "linear-gradient(135deg,#7c3aed,#a855f7)",
+        gradient: "#1F3A68",
         text: c.text,
         time: c.time,
         likes: c.likes || 0,
@@ -344,9 +419,8 @@ export default function EmployeeCorner() {
       id: p.id,
       authorName: p.username,
       initials: getInitials(p.username),
-      gradient: "linear-gradient(135deg,#7c3aed,#a855f7)",
+      gradient: "#1F3A68",
       role: "",
-      category: p.category,
       title: p.title,
       content: p.content,
       time: new Date(p.created_at).toLocaleString(),
@@ -367,7 +441,6 @@ export default function EmployeeCorner() {
 
     const formData = new FormData();
     formData.append("content", postText);
-    formData.append("category", postCat);
     formData.append("title", postTitle);
 
     images.forEach((img) => {
@@ -384,7 +457,12 @@ export default function EmployeeCorner() {
     setPostTitle("");
     setComposing(false);
 
-    fetchPosts();
+    if (feedFilter !== "recent") {
+      setFeedFilter("recent");
+      return;
+    }
+
+    fetchPosts("recent");
   };
 
   const toggleLike = async (id: string) => {
@@ -451,10 +529,30 @@ export default function EmployeeCorner() {
     setPosts((prev) =>
       prev.map((p) => (p.id === id ? { ...p, saved: data.saved } : p)),
     );
+
+    if (feedFilter === "saved") {
+      fetchPosts("saved");
+    }
   };
 
   const toggleComments = (id: string) =>
     setOpenComments((p: Record<string, boolean>) => ({ ...p, [id]: !p[id] }));
+
+  const dismissToast = (id: number) => {
+    setToasts((prev) => prev.filter((toast) => toast.id !== id));
+  };
+
+  const showToast = (message: string, type: ToastType = "success") => {
+    const id = Date.now() + Math.floor(Math.random() * 1000);
+    setToasts((prev) => [...prev, { id, message, type }]);
+
+    const timerId = window.setTimeout(() => {
+      dismissToast(id);
+      toastTimersRef.current = toastTimersRef.current.filter((t) => t !== timerId);
+    }, 2600);
+
+    toastTimersRef.current.push(timerId);
+  };
 
   const addComment = async (id: string) => {
     const text = commentTexts[id];
@@ -507,67 +605,90 @@ export default function EmployeeCorner() {
         <div style={{ flex: 1, minWidth: 0 }}>
           {/* Bubble: name bold, comment text below — no date/time */}
           <div className="li-comment-card">
-  <div className="li-comment-header">
-    <span className="li-comment-name">{comment.name}</span>
-  </div>
+            <div className="li-comment-header">
+              <span className="li-comment-name">{comment.name}</span>
+              <span className="li-comment-name-date">· {comment.time}</span>
+            </div>
 
-  <p className="li-comment-text">{comment.text}</p>
-</div>
+            <p className="li-comment-text">{comment.text}</p>
+          </div>
 
           {/* Action row: Like 1 | Reply 1 — exactly like LinkedIn */}
           <div className="li-comment-actions">
-            {/* Like button: shows "Like" text when 0, or "👍 N" when liked/has likes */}
-            <button
-              className={`li-action-btn${comment.liked ? " li-liked" : ""}`}
+            <span
+              className={`li-inline-action${comment.liked ? " li-liked" : ""}`}
               onClick={() => toggleCommentLike(postId, comment.id)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  toggleCommentLike(postId, comment.id);
+                }
+              }}
+              role="button"
+              tabIndex={0}
+              aria-label="Like comment"
+              title="Like"
             >
-              {comment.likes > 0 ? (
-                <>
-                  <Heart filled={comment.liked} />
-                  <span className="li-action-count">{comment.likes}</span>
-                </>
-              ) : (
-                <span className="li-action-label">Like</span>
-              )}
-            </button>
+              <ThumbsUp
+                size={16}
+                fill={comment.liked ? "rgba(242,101,34,0.25)" : "none"}
+                color={comment.liked ? "#F26522" : "currentColor"}
+                strokeWidth={2.1}
+              />
+              <span>{comment.likes}</span>
+            </span>
 
-            <span className="li-action-sep">|</span>
-
-            <button
-              className={`li-action-btn${replyTo === comment.id ? " li-active" : ""}`}
-              onClick={() =>
-                setReplyTo(replyTo === comment.id ? null : comment.id)
-              }
+            <span
+              className={`li-inline-reply${replyTo === comment.id ? " li-active" : ""}`}
+              onClick={() => setReplyTo(replyTo === comment.id ? null : comment.id)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  setReplyTo(replyTo === comment.id ? null : comment.id);
+                }
+              }}
+              role="button"
+              tabIndex={0}
+              aria-label="Reply"
+              title="Reply"
             >
-              <span className="li-action-label">Reply</span>
-              {comment.replies && comment.replies.length > 0 && (
-                <span className="li-action-count">
-                  {comment.replies.length}
-                </span>
-              )}
-            </button>
+              Reply
+            </span>
 
             {comment.replies && comment.replies.length > 0 && (
-              <>
-                <span className="li-action-sep">·</span>
-                <button
-                  className="li-action-btn li-replies-toggle"
-                  onClick={toggleReplies}
-                >
-                  {repliesOpen
-                    ? "Hide replies"
-                    : `${comment.replies.length} ${comment.replies.length === 1 ? "reply" : "replies"}`}
-                </button>
-              </>
+              <span className="li-replies-count">
+                · {comment.replies.length} {comment.replies.length === 1 ? "reply" : "replies"}
+              </span>
             )}
           </div>
+
+          {comment.replies && comment.replies.length > 0 && (
+            <div className="li-replies-toggle-row">
+              <span
+                className={`li-hide-replies-btn ${repliesOpen ? "open" : "closed"}`}
+                onClick={toggleReplies}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    toggleReplies();
+                  }
+                }}
+                role="button"
+                tabIndex={0}
+                aria-label={repliesOpen ? "Hide replies" : "View replies"}
+                title={repliesOpen ? "Hide replies" : "View replies"}
+              >
+                {repliesOpen ? "Hide replies" : "View replies"}
+              </span>
+            </div>
+          )}
 
           {/* Reply input */}
           {replyTo === comment.id && (
             <div className="li-reply-input-row">
               <Avatar
                 initials={getInitials(user?.username || "U")}
-                gradient="linear-gradient(135deg,#7c3aed,#a855f7)"
+                gradient="#1F3A68"
                 size={28}
               />
               <div className="li-reply-input-box">
@@ -619,17 +740,77 @@ export default function EmployeeCorner() {
     );
   };
 
-  const handleShare = (postId: string) => {
-    const url = `${window.location.origin}/post/${postId}`;
-    navigator.clipboard.writeText(url);
-    alert("🔗 Link copied! You can share it anywhere.");
+  const openSharePopover = (postId: string) => {
+    setOpenPostMenuId(null);
+    if (sharePopover?.postId === postId) {
+      setSharePopover(null);
+      return;
+    }
+
+    setSharePopover({
+      postId,
+      url: `${window.location.origin}/post/${postId}`,
+    });
   };
 
-  const filtered = showBookmarked
-    ? posts.filter((p) => p.saved)
-    : filter === "all"
-      ? posts
-      : posts.filter((p) => p.category === filter);
+  const handleShare = async () => {
+    if (!sharePopover) return;
+
+    try {
+      await navigator.clipboard.writeText(sharePopover.url);
+      setSharePopover(null);
+      showToast("Link copied successfully", "success");
+    } catch (error) {
+      console.error("Share failed:", error);
+      showToast("Unable to copy link. Please try again.", "error");
+    }
+  };
+
+  const confirmDeletePost = async () => {
+    if (!deletePostId) return;
+
+    const targetId = deletePostId;
+    const prevPosts = posts;
+
+    setDeletingPostId(targetId);
+    setPosts((prev) => prev.filter((p) => p.id !== targetId));
+    setDeletePostId(null);
+
+    try {
+      const res = await fetch("/api/ec/posts", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ postId: targetId }),
+      });
+
+      let responseBody: { error?: string } | null = null;
+      try {
+        responseBody = await res.json();
+      } catch {
+        responseBody = null;
+      }
+
+      if (!res.ok) {
+        if (res.status === 403) {
+          throw new Error("You do not have permission to delete this post");
+        }
+        throw new Error(responseBody?.error || "Delete request failed");
+      }
+
+      showToast("Post deleted successfully", "success");
+    } catch (error) {
+      console.error("Delete post failed:", error);
+      setPosts(prevPosts);
+      showToast(
+        error instanceof Error
+          ? error.message
+          : "Unable to delete post. Please try again.",
+        "error",
+      );
+    } finally {
+      setDeletingPostId(null);
+    }
+  };
 
   const bookmarkedCount = posts.filter((p) => p.saved).length;
 
@@ -642,22 +823,105 @@ export default function EmployeeCorner() {
 
   return (
     <>
+      {sharePopover &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div className="ec-share-overlay" onClick={() => setSharePopover(null)}>
+            <div
+              ref={sharePopoverRef}
+              className="ec-share-popover"
+              role="dialog"
+              aria-label="Share this post"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="ec-share-title">Share this post</div>
+              <div className="ec-share-row">
+                <input
+                  className="ec-share-link-input"
+                  value={sharePopover.url}
+                  readOnly
+                  onFocus={(e) => e.target.select()}
+                  aria-label="Shareable link"
+                />
+                <button className="ec-share-copy-btn" onClick={handleShare}>
+                  <CopyIcon />
+                  <span>Copy Link</span>
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
+
+      {deletePostId &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            className="ec-delete-overlay"
+            onClick={() => {
+              if (!deletingPostId) setDeletePostId(null);
+            }}
+          >
+            <div
+              className="ec-delete-modal"
+              role="dialog"
+              aria-label="Delete post confirmation"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 className="ec-delete-title">Delete Post?</h3>
+              <p className="ec-delete-message">
+                Are you sure you want to delete this post? This action cannot be undone.
+              </p>
+              <div className="ec-delete-actions">
+                <button
+                  className="ec-delete-cancel-btn"
+                  onClick={() => setDeletePostId(null)}
+                  disabled={Boolean(deletingPostId)}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="ec-delete-confirm-btn"
+                  onClick={confirmDeletePost}
+                  disabled={deletingPostId === deletePostId}
+                >
+                  {deletingPostId === deletePostId ? "Deleting..." : "Delete"}
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
+
       <div className="ec-wrapper">
         {/* ═══ FEED ═══ */}
         <div className="ec-feed">
+          <div className="ec-toast-stack" aria-live="polite" aria-atomic="true">
+            {toasts.map((toast) => (
+              <div
+                key={toast.id}
+                className={`ec-toast ${toast.type === "error" ? "error" : "success"}`}
+                role="status"
+              >
+                <span className="ec-toast-dot" />
+                <span>{toast.message}</span>
+              </div>
+            ))}
+          </div>
+
           {/* Compose */}
           <div className="ec-card" style={{ padding: 16 }}>
             <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
               <Avatar
                 initials={getInitials(user?.username || "U")}
-                gradient="linear-gradient(135deg,#7c3aed,#a855f7)"
+                gradient="#1F3A68"
               />
               {!composing ? (
                 <button
                   className="compose-trigger"
                   onClick={() => setComposing(true)}
                 >
-                  What&apos;s on your mind? Share a post, blog, or update…
+                  What&apos;s on your mind? Share an update with your team…
                 </button>
               ) : (
                 <div
@@ -671,7 +935,7 @@ export default function EmployeeCorner() {
                   <input
                     value={postTitle}
                     onChange={(e) => setPostTitle(e.target.value)}
-                    placeholder="Title (optional — for blogs & articles)"
+                    placeholder="Title"
                     className="compose-title"
                   />
                   <textarea
@@ -703,66 +967,6 @@ export default function EmployeeCorner() {
                     <div
                       style={{ display: "flex", gap: 8, alignItems: "center" }}
                     >
-                      <div style={{ position: "relative" }}>
-                        <button
-                          ref={catBtnRef}
-                          className="cat-toggle"
-                          onClick={handleCatToggle}
-                          style={{
-                            color: CATEGORIES[postCat].color,
-                            background: CATEGORIES[postCat].bg,
-                          }}
-                        >
-                          {CATEGORIES[postCat].label}
-                          <svg
-                            width="10"
-                            height="10"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="3"
-                          >
-                            <polyline points="6 9 12 15 18 9" />
-                          </svg>
-                        </button>
-                      </div>
-                      {catOpen &&
-                        createPortal(
-                          <div
-                            className="cat-dropdown"
-                            style={{
-                              position: "fixed",
-                              top: `${catPos.top}px`,
-                              left: `${catPos.left}px`,
-                              zIndex: 100000,
-                            }}
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            {(Object.keys(CATEGORIES) as string[])
-                              .filter((k) => k !== "all")
-                              .map((k) => {
-                                const cfg = CATEGORIES[k];
-                                return (
-                                  <button
-                                    key={k}
-                                    className={`cat-option ${postCat === k ? "selected" : ""}`}
-                                    onClick={() => {
-                                      setPostCat(k as PostCategory);
-                                      setCatOpen(false);
-                                    }}
-                                    style={{ color: cfg.color }}
-                                  >
-                                    <span
-                                      className="cat-dot"
-                                      style={{ background: cfg.color }}
-                                    />
-                                    {cfg.label}
-                                  </button>
-                                );
-                              })}
-                          </div>,
-                          document.body,
-                        )}
                       <label className="image-upload-btn">
                         <ImageSvg />
                         <input
@@ -798,16 +1002,15 @@ export default function EmployeeCorner() {
 
           {/* Filter Tabs */}
           <div className="ec-filters">
-            {(Object.keys(CATEGORIES) as FilterKey[]).map((k) => {
-              const cfg = CATEGORIES[k];
-              const isActive = filter === k && !showBookmarked;
+            {(Object.keys(FEED_FILTERS) as FeedFilterKey[]).map((k) => {
+              const cfg = FEED_FILTERS[k];
+              const isActive = feedFilter === k;
               return (
                 <button
                   key={k}
                   className={`filter-btn ${isActive ? "active" : ""}`}
                   onClick={() => {
-                    setFilter(k);
-                    setShowBookmarked(false);
+                    setFeedFilter(k);
                   }}
                   style={
                     isActive
@@ -822,27 +1025,35 @@ export default function EmployeeCorner() {
           </div>
 
           {/* Posts */}
-          {filtered.length === 0 ? (
+          {posts.length === 0 ? (
             <div className="ec-card empty-feed">
               <div className="empty-content">
                 <div className="empty-icon-wrapper">
                   <PencilIcon />
                 </div>
                 <p className="empty-title">
-                  {showBookmarked
-                    ? "No bookmarked posts yet"
-                    : "No posts yet. Be the first to share!"}
+                  {feedFilter === "saved"
+                    ? "No saved posts yet"
+                    : feedFilter === "myPosts"
+                      ? "You haven't posted yet"
+                      : "No posts yet. Be the first to share!"}
                 </p>
                 <p className="empty-subtitle">
-                  {showBookmarked
-                    ? "Bookmark posts you want to revisit later"
-                    : "Start a conversation — your team is listening"}
+                  {feedFilter === "saved"
+                    ? "Save posts to revisit them quickly"
+                    : feedFilter === "myPosts"
+                      ? "Create your first post and start a conversation"
+                      : "Start a conversation — your team is listening"}
                 </p>
               </div>
             </div>
           ) : (
-            filtered.map((post) => (
-              <div key={post.id} className="ec-card">
+            posts.map((post) => {
+              const canDeleteThisPost =
+                post.authorName === user?.username || canModerateAnyPost;
+
+              return (
+                <div key={post.id} className="ec-card">
                 <div className="post-header">
                   <Avatar
                     initials={post.initials}
@@ -854,18 +1065,42 @@ export default function EmployeeCorner() {
                       style={{ display: "flex", alignItems: "center", gap: 8 }}
                     >
                       <span className="author-name">{post.authorName}</span>
-                      <span
-                        className="category-badge"
-                        style={{
-                          color: CATEGORIES[post.category].color,
-                          background: CATEGORIES[post.category].bg,
-                        }}
-                      >
-                        {CATEGORIES[post.category].label}
-                      </span>
                     </div>
                     <span className="post-time">{post.time}</span>
                   </div>
+
+                  {canDeleteThisPost && (
+                    <div className="post-menu-wrap">
+                      <button
+                        className="post-menu-trigger"
+                        ref={(el) => {
+                          postMenuButtonRefs.current[post.id] = el;
+                        }}
+                        onClick={() =>
+                          setOpenPostMenuId((prev) => (prev === post.id ? null : post.id))
+                        }
+                        aria-haspopup="menu"
+                        aria-expanded={openPostMenuId === post.id}
+                      >
+                        <MoreHorizontal size={16} />
+                      </button>
+
+                      {openPostMenuId === post.id && (
+                        <div ref={postMenuRef} className="post-menu-dropdown" role="menu">
+                          <button
+                            className="post-menu-item danger"
+                            onClick={() => {
+                              setOpenPostMenuId(null);
+                              setDeletePostId(post.id);
+                            }}
+                          >
+                            <Trash2 size={14} />
+                            <span>Delete Post</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 <div className="post-content">
@@ -895,7 +1130,12 @@ export default function EmployeeCorner() {
                     className="action-btn"
                     onClick={() => toggleLike(post.id)}
                   >
-                    <Heart filled={post.liked} />
+                    <ThumbsUp
+                      size={16}
+                      fill={post.liked ? "rgba(242,101,34,0.25)" : "none"}
+                      color={post.liked ? "#F26522" : "currentColor"}
+                      strokeWidth={2.1}
+                    />
                     <span>{post.likes}</span>
                   </button>
                   <button
@@ -907,7 +1147,9 @@ export default function EmployeeCorner() {
                   </button>
                   <button
                     className="action-btn"
-                    onClick={() => handleShare(post.id)}
+                    onClick={() => openSharePopover(post.id)}
+                    aria-haspopup="dialog"
+                    aria-expanded={sharePopover?.postId === post.id}
                   >
                     <ShareIcon />
                   </button>
@@ -939,7 +1181,7 @@ export default function EmployeeCorner() {
                     <div className="li-new-comment-row">
                       <Avatar
                         initials={getInitials(user?.username || "U")}
-                        gradient="linear-gradient(135deg,#7c3aed,#a855f7)"
+                        gradient="#1F3A68"
                         size={36}
                       />
                       <div className="li-new-comment-box">
@@ -973,7 +1215,8 @@ export default function EmployeeCorner() {
                   </div>
                 )}
               </div>
-            ))
+              );
+            })
           )}
         </div>
 
@@ -991,13 +1234,14 @@ export default function EmployeeCorner() {
               <div className="panel-empty">No bookmarks yet</div>
             ) : (
               <button
-                className={`view-bookmarks-btn ${showBookmarked ? "active" : ""}`}
+                className={`view-bookmarks-btn ${feedFilter === "saved" ? "active" : ""}`}
                 onClick={() => {
-                  setShowBookmarked(!showBookmarked);
-                  if (!showBookmarked) setFilter("all");
+                  setFeedFilter((prev) =>
+                    prev === "saved" ? "recent" : "saved",
+                  );
                 }}
               >
-                {showBookmarked
+                {feedFilter === "saved"
                   ? "← Back to Feed"
                   : `View ${bookmarkedCount} Saved Posts`}
               </button>
@@ -1018,7 +1262,7 @@ export default function EmployeeCorner() {
                   <div className="lb-rank">{getRankIcon(index)}</div>
                   <Avatar
                     initials={getInitials(user.username)}
-                    gradient="linear-gradient(135deg,#7c3aed,#a855f7)"
+                    gradient="#1F3A68"
                     size={30}
                   />
                   <div className="lb-info">
@@ -1053,6 +1297,279 @@ export default function EmployeeCorner() {
           align-items: flex-start;
           box-sizing: border-box;
         }
+
+        .ec-toast-stack {
+          position: fixed;
+          right: 20px;
+          bottom: 20px;
+          top: auto;
+          left: auto;
+          z-index: 40;
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+          pointer-events: none;
+        }
+
+        .ec-toast {
+          pointer-events: auto;
+          min-width: 250px;
+          max-width: min(360px, calc(100vw - 32px));
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 12px 14px;
+          border-radius: 12px;
+          color: #ffffff;
+          font-size: 13px;
+          font-weight: 600;
+          background: #1F3A68;
+          box-shadow:
+            0 12px 24px rgba(31, 58, 104, 0.24),
+            0 2px 8px rgba(0, 0, 0, 0.12);
+          border: 1px solid rgba(255, 255, 255, 0.2);
+          animation:
+            toast-slide-in 220ms ease,
+            toast-fade-out 220ms ease 2.38s forwards;
+          user-select: none;
+        }
+
+        .ec-toast.error {
+          background: linear-gradient(135deg, #ef4444, #dc2626);
+          box-shadow:
+            0 12px 24px rgba(220, 38, 38, 0.25),
+            0 2px 8px rgba(0, 0, 0, 0.12);
+        }
+
+        .ec-toast-dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          background: rgba(255, 255, 255, 0.95);
+          flex-shrink: 0;
+        }
+
+        @keyframes toast-slide-in {
+          from {
+            opacity: 0;
+            transform: translateY(-8px) translateX(10px) scale(0.98);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0) translateX(0) scale(1);
+          }
+        }
+
+        @keyframes toast-fade-out {
+          from {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+          to {
+            opacity: 0;
+            transform: translateY(-4px) scale(0.98);
+          }
+        }
+
+        .ec-share-overlay {
+          position: fixed;
+          inset: 0;
+          z-index: 120005;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: rgba(15, 23, 42, 0.2);
+          backdrop-filter: blur(5px);
+          -webkit-backdrop-filter: blur(5px);
+          padding: 16px;
+        }
+
+        .ec-share-popover {
+          position: fixed;
+          z-index: 120010;
+          width: min(560px, calc(100vw - 32px));
+          background: #ffffff;
+          border: 1px solid rgba(31, 58, 104, 0.14);
+          border-radius: 14px;
+          box-shadow:
+            0 16px 32px rgba(31, 58, 104, 0.18),
+            0 2px 8px rgba(15, 23, 42, 0.14);
+          padding: 12px;
+          animation: share-popover-in 170ms ease;
+        }
+
+        .ec-share-title {
+          font-size: 12px;
+          font-weight: 700;
+          color: #1F3A68;
+          margin-bottom: 8px;
+        }
+
+        .ec-share-row {
+          display: flex;
+          gap: 8px;
+          align-items: center;
+        }
+
+        .ec-share-link-input {
+          flex: 1;
+          height: 36px;
+          border: 1px solid #ddd6fe;
+          background: #faf5ff;
+          border-radius: 10px;
+          padding: 0 10px;
+          font-size: 12px;
+          color: #4c1d95;
+          outline: none;
+        }
+
+        .ec-share-link-input:focus {
+          border-color: #F26522;
+          box-shadow: 0 0 0 3px rgba(242, 101, 34, 0.2);
+        }
+
+        .ec-share-copy-btn {
+          height: 36px;
+          border: none;
+          border-radius: 10px;
+          background: #1F3A68;
+          color: #fff;
+          font-size: 12px;
+          font-weight: 600;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 0 12px;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          white-space: nowrap;
+        }
+
+        .ec-share-copy-btn:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 8px 18px rgba(31, 58, 104, 0.3);
+        }
+
+        .ec-share-copy-btn:active {
+          transform: translateY(0);
+        }
+
+        .ec-delete-overlay {
+          position: fixed;
+          inset: 0;
+          z-index: 120020;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: rgba(15, 23, 42, 0.26);
+          backdrop-filter: blur(6px);
+          -webkit-backdrop-filter: blur(6px);
+          padding: 16px;
+          animation: fade-in 180ms ease;
+        }
+
+        .ec-delete-modal {
+          width: min(460px, calc(100vw - 32px));
+          background: #ffffff;
+          border: 1px solid rgba(31, 58, 104, 0.14);
+          border-radius: 16px;
+          box-shadow:
+            0 18px 36px rgba(31, 58, 104, 0.22),
+            0 2px 8px rgba(15, 23, 42, 0.15);
+          padding: 22px;
+          animation: modal-in 180ms ease;
+        }
+
+        .ec-delete-title {
+          margin: 0;
+          font-size: 20px;
+          font-weight: 700;
+          color: #1e293b;
+        }
+
+        .ec-delete-message {
+          margin: 10px 0 0;
+          font-size: 14px;
+          line-height: 1.6;
+          color: #64748b;
+        }
+
+        .ec-delete-actions {
+          margin-top: 20px;
+          display: flex;
+          justify-content: flex-end;
+          gap: 10px;
+        }
+
+        .ec-delete-cancel-btn,
+        .ec-delete-confirm-btn {
+          height: 38px;
+          border-radius: 10px;
+          padding: 0 14px;
+          font-size: 13px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          border: none;
+        }
+
+        .ec-delete-cancel-btn {
+          background: #f1f5f9;
+          color: #475569;
+        }
+
+        .ec-delete-cancel-btn:hover {
+          background: #e2e8f0;
+        }
+
+        .ec-delete-confirm-btn {
+          background: #F26522;
+          color: #ffffff;
+          box-shadow: 0 8px 18px rgba(31, 58, 104, 0.3);
+        }
+
+        .ec-delete-confirm-btn:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 12px 24px rgba(242, 101, 34, 0.34);
+        }
+
+        .ec-delete-cancel-btn:disabled,
+        .ec-delete-confirm-btn:disabled {
+          opacity: 0.65;
+          cursor: not-allowed;
+          transform: none;
+        }
+
+        @keyframes fade-in {
+          from {
+            opacity: 0;
+          }
+          to {
+            opacity: 1;
+          }
+        }
+
+        @keyframes modal-in {
+          from {
+            opacity: 0;
+            transform: translateY(8px) scale(0.98);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
+
+        @keyframes share-popover-in {
+          from {
+            opacity: 0;
+            transform: translateY(-6px) scale(0.98);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
         .ec-feed {
           flex: 1 1 0%;
           min-width: 0;
@@ -1061,6 +1578,7 @@ export default function EmployeeCorner() {
           flex-direction: column;
           gap: 16px;
           min-height: calc(100vh - 128px);
+          position: relative;
         }
         .ec-sidebar {
           width: 320px;
@@ -1130,8 +1648,8 @@ export default function EmployeeCorner() {
         }
         .compose-trigger:hover {
           background: #f1f5f9;
-          border-color: #c4b5fd;
-          box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.06);
+          border-color: #F26522;
+          box-shadow: 0 0 0 3px rgba(242, 101, 34, 0.08);
         }
         .compose-title {
           width: 100%;
@@ -1159,51 +1677,6 @@ export default function EmployeeCorner() {
           align-items: center;
           padding-top: 12px;
           border-top: 1px solid #f1f5f9;
-        }
-        .cat-toggle {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          padding: 6px 12px;
-          border: none;
-          border-radius: 6px;
-          font-size: 12px;
-          font-weight: 600;
-          cursor: pointer;
-          transition: all 0.2s;
-        }
-        .cat-dropdown {
-          background: white;
-          border-radius: 8px;
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-          padding: 6px;
-          min-width: 160px;
-        }
-        .cat-option {
-          width: 100%;
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          padding: 8px 12px;
-          border: none;
-          background: none;
-          border-radius: 6px;
-          font-size: 13px;
-          font-weight: 500;
-          cursor: pointer;
-          transition: all 0.2s;
-          text-align: left;
-        }
-        .cat-option:hover {
-          background: rgba(0, 0, 0, 0.04);
-        }
-        .cat-option.selected {
-          background: rgba(124, 58, 237, 0.1);
-        }
-        .cat-dot {
-          width: 8px;
-          height: 8px;
-          border-radius: 50%;
         }
         .image-upload-btn {
           display: flex;
@@ -1272,14 +1745,14 @@ export default function EmployeeCorner() {
           color: #475569;
         }
         .post-btn {
-          background: linear-gradient(135deg, #7c3aed, #a855f7);
+          background: #F26522;
           border: none;
           color: white;
-          box-shadow: 0 2px 8px rgba(124, 58, 237, 0.3);
+          box-shadow: 0 2px 8px rgba(31, 58, 104, 0.24);
         }
         .post-btn:hover {
-          background: linear-gradient(135deg, #6d28d9, #9333ea);
-          box-shadow: 0 4px 12px rgba(124, 58, 237, 0.4);
+          background: #dc5a1d;
+          box-shadow: 0 4px 12px rgba(242, 101, 34, 0.32);
           transform: translateY(-1px);
         }
 
@@ -1334,15 +1807,81 @@ export default function EmployeeCorner() {
           font-size: 14px;
           color: #1e293b;
         }
-        .category-badge {
-          padding: 2px 8px;
-          border-radius: 4px;
-          font-size: 11px;
-          font-weight: 600;
-        }
         .post-time {
           font-size: 12px;
           color: #94a3b8;
+        }
+        .post-menu-wrap {
+          position: relative;
+          margin-left: auto;
+        }
+        .post-menu-trigger {
+          width: 32px;
+          height: 32px;
+          border: none;
+          border-radius: 8px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          background: transparent;
+          color: #64748b;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+        .post-menu-trigger:hover {
+          background: #f1f5f9;
+          color: #475569;
+        }
+        .post-menu-dropdown {
+          position: absolute;
+          right: 0;
+          top: calc(100% + 8px);
+          min-width: 170px;
+          background: #ffffff;
+          border: 1px solid #ede9fe;
+          border-radius: 12px;
+          box-shadow:
+            0 16px 30px rgba(31, 58, 104, 0.16),
+            0 2px 8px rgba(15, 23, 42, 0.14);
+          padding: 6px;
+          z-index: 15;
+          animation: menu-in 160ms ease;
+        }
+        .post-menu-item {
+          width: 100%;
+          height: 36px;
+          border: none;
+          background: transparent;
+          border-radius: 8px;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 0 10px;
+          color: #334155;
+          font-size: 13px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+        .post-menu-item:hover {
+          background: #f8fafc;
+        }
+        .post-menu-item.danger {
+          color: #dc2626;
+        }
+        .post-menu-item.danger:hover {
+          background: rgba(239, 68, 68, 0.1);
+        }
+
+        @keyframes menu-in {
+          from {
+            opacity: 0;
+            transform: translateY(-4px) scale(0.98);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
         }
         .post-content {
           padding: 0 16px 16px;
@@ -1389,131 +1928,238 @@ export default function EmployeeCorner() {
    MODERN CLEAN COMMENT UI
 =============================== */
 
-.comments-section {
-  padding: 20px;
-  background: #f8fafc;
-  border-top: 1px solid #eef2f7;
+:global(.comments-section) {
+  padding: 16px;
+  background: #ffffff;
+  border-top: 1px solid #edf0f3;
 }
 
-.comments-list {
+:global(.comments-list) {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 16px;
 }
 
-/* ROW */
-.comment-row {
+:global(.comment-row) {
   display: flex;
   gap: 12px;
   align-items: flex-start;
 }
 
-/* CARD */
-.li-comment-card {
-  background: white;
-  border-radius: 16px;
-  padding: 14px 16px;
-  border: 1px solid #edf2f7;
-  box-shadow: 0 3px 8px rgba(0,0,0,0.05);
+:global(.li-comment-card) {
+  position: relative;
+  background: #f1f3f6;
+  border-radius: 8px;
+  padding: 10px 14px;
   width: 100%;
-  transition: all 0.2s ease;
+  border: 1px solid transparent;
 }
 
-.li-comment-card:hover {
-  box-shadow: 0 6px 16px rgba(0,0,0,0.08);
-}
-
-/* NAME */
-.li-comment-name {
-  font-size: 14px;
+:global(.li-comment-name) {
+  font-size: 16px;
   font-weight: 700;
   color: #111827;
-  margin-bottom: 4px;
+  line-height: 1.2;
 }
 
-/* TEXT */
-.li-comment-text {
+:global(.li-comment-name-date) {
+  margin-left: 6px;
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 500;
+}
+
+:global(.li-comment-text) {
   font-size: 14px;
-  color: #374151;
-  line-height: 1.6;
+  color: #111827;
+  margin: 3px 0 0;
+  line-height: 1.45;
 }
 
-/* ACTIONS */
-.li-comment-actions {
+:global(.li-comment-actions) {
   display: flex;
-  gap: 12px;
-  margin-top: 6px;
-  padding-left: 4px;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+  margin-left: 2px;
+  flex-wrap: wrap;
 }
 
-.li-action-btn {
+:global(.li-comment-time) {
+  font-size: 12px;
+  color: #64748b;
+  margin-right: 2px;
+}
+
+:global(.li-inline-action) {
+  border: none;
+  background: transparent;
+  color: #6b7280;
+  height: auto;
+  min-width: 0;
+  padding: 0;
   font-size: 12px;
   font-weight: 600;
-  color: #6b7280;
-  background: none;
+  cursor: pointer;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+:global(.li-inline-action:hover) {
+  color: #111827;
+}
+
+:global(.li-inline-action.li-liked) {
+  color: #F26522;
+}
+
+:global(.li-inline-reply) {
   border: none;
+  background: transparent;
+  color: #111827;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 0 2px;
   cursor: pointer;
 }
 
-.li-action-btn:hover {
-  color: #7c3aed;
+:global(.li-inline-reply.li-active),
+:global(.li-inline-reply:hover) {
+  color: #F26522;
 }
 
-.li-action-btn.li-liked {
-  color: #ef4444;
+:global(.li-replies-count) {
+  font-size: 13px;
+  color: #64748b;
 }
 
-/* REPLIES */
-.li-replies-thread {
+:global(.li-replies-toggle-row) {
+  margin: 8px 0 0 2px;
+}
+
+:global(.li-hide-replies-btn) {
+  border: none;
+  background: transparent;
+  color: #475569;
+  border-radius: 6px;
+  padding: 0;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 2px;
+  display: inline-flex;
+  align-items: center;
+}
+
+:global(.li-hide-replies-btn.closed) {
+  color: #3730a3;
+}
+
+:global(.li-hide-replies-btn.open) {
+  color: #9f1239;
+}
+
+:global(.li-hide-replies-btn:hover) {
+  text-decoration-color: currentColor;
+}
+
+:global(.li-hide-replies-btn.closed:hover) {
+  color: #312e81;
+}
+
+:global(.li-hide-replies-btn.open:hover) {
+  color: #881337;
+}
+
+:global(.li-inline-action:focus-visible),
+:global(.li-inline-reply:focus-visible),
+:global(.li-hide-replies-btn:focus-visible) {
+  outline: 2px solid #93c5fd;
+  outline-offset: 2px;
+}
+
+:global(.li-replies-thread) {
   margin-top: 12px;
-  padding-left: 20px;
-  border-left: 2px solid #e5e7eb;
+  margin-left: 8px;
+  padding-left: 10px;
+  border-left: 1px solid #e5e7eb;
   display: flex;
   flex-direction: column;
   gap: 14px;
 }
 
-/* INPUT */
-.li-new-comment-row {
+:global(.li-new-comment-row) {
   display: flex;
   gap: 12px;
-  margin-top: 16px;
+  margin-top: 18px;
 }
 
-.li-new-comment-box {
+:global(.li-new-comment-box) {
   flex: 1;
   display: flex;
   align-items: center;
-  background: white;
-  border-radius: 30px;
-  padding: 12px 16px;
-  border: 1px solid #e5e7eb;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+  background: #ffffff;
+  border-radius: 12px;
+  min-height: 44px;
+  padding: 0 10px 0 14px;
+  border: 1px solid #d7dbe0;
 }
 
-.li-new-comment-input {
+:global(.li-new-comment-input) {
   flex: 1;
   border: none;
   outline: none;
   font-size: 14px;
+  color: #111827;
+  background: transparent;
 }
 
-/* SEND */
-.li-send-btn {
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  background: linear-gradient(135deg,#7c3aed,#a855f7);
-  color: white;
+:global(.li-reply-input-row) {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+:global(.li-reply-input-box) {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  background: #ffffff;
+  border-radius: 10px;
+  min-height: 40px;
+  padding: 0 8px 0 12px;
+  border: 1px solid #d7dbe0;
+}
+
+:global(.li-reply-input) {
+  flex: 1;
   border: none;
+  outline: none;
+  font-size: 13px;
+  color: #111827;
+  background: transparent;
+}
+
+:global(.li-send-btn) {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: #ffffff;
+  color: #64748b;
+  border: 1px solid #d4d8de;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
 }
 
-.li-send-btn:hover {
-  transform: scale(1.05);
+:global(.li-send-btn:hover) {
+  background: #f8fafc;
 }
        
 
@@ -1529,7 +2175,7 @@ export default function EmployeeCorner() {
           transition: background 0.2s;
         }
         .lb-row:hover {
-          background: rgba(124, 58, 237, 0.04);
+          background: rgba(31, 58, 104, 0.06);
         }
         .rank-number {
           font-size: 12px;
@@ -1569,11 +2215,7 @@ export default function EmployeeCorner() {
           width: 72px;
           height: 72px;
           border-radius: 50%;
-          background: linear-gradient(
-            135deg,
-            rgba(124, 58, 237, 0.08),
-            rgba(168, 85, 247, 0.12)
-          );
+          background: rgba(242, 101, 34, 0.14);
           display: flex;
           align-items: center;
           justify-content: center;
@@ -1594,8 +2236,8 @@ export default function EmployeeCorner() {
         /* ─── Bookmark sidebar ─── */
         .bookmark-count {
           margin-left: auto;
-          background: rgba(124, 58, 237, 0.15);
-          color: #7c3aed;
+          background: rgba(242, 101, 34, 0.15);
+          color: #F26522;
           padding: 2px 8px;
           border-radius: 10px;
           font-size: 11px;
@@ -1604,29 +2246,430 @@ export default function EmployeeCorner() {
         .view-bookmarks-btn {
           width: 100%;
           padding: 10px 14px;
-          background: rgba(124, 58, 237, 0.08);
-          border: 1px solid rgba(124, 58, 237, 0.2);
+          background: rgba(242, 101, 34, 0.1);
+          border: 1px solid rgba(242, 101, 34, 0.25);
           border-radius: 8px;
-          color: #7c3aed;
+          color: #F26522;
           font-size: 13px;
           font-weight: 500;
           cursor: pointer;
           transition: all 0.2s;
         }
         .view-bookmarks-btn:hover {
-          background: rgba(124, 58, 237, 0.12);
-          border-color: rgba(124, 58, 237, 0.3);
+          background: rgba(242, 101, 34, 0.15);
+          border-color: rgba(242, 101, 34, 0.32);
         }
         .view-bookmarks-btn.active {
-          background: #7c3aed;
+          background: #F26522;
           color: white;
-          border-color: #7c3aed;
+          border-color: #F26522;
         }
 
         @media (max-width: 1024px) {
           .ec-sidebar {
             display: none;
           }
+
+          .ec-toast-stack {
+            bottom: 12px;
+            right: 12px;
+            left: 12px;
+            top: auto;
+            align-items: stretch;
+          }
+
+          .ec-toast {
+            max-width: 100%;
+          }
+
+          .ec-share-overlay {
+            padding: 12px;
+          }
+
+          .ec-share-popover {
+            width: calc(100vw - 24px);
+          }
+
+          .ec-delete-modal {
+            width: calc(100vw - 24px);
+            padding: 18px;
+          }
+
+          .ec-delete-actions {
+            flex-direction: column-reverse;
+          }
+
+          .ec-delete-cancel-btn,
+          .ec-delete-confirm-btn {
+            width: 100%;
+          }
+
+          .ec-share-row {
+            flex-direction: column;
+            align-items: stretch;
+          }
+        }
+
+        @media (prefers-color-scheme: dark) {
+          .ec-wrapper {
+            background: #0b1220;
+          }
+
+          .ec-card,
+          .ec-panel,
+          .ec-filters {
+            background: #111827;
+            border-color: #233047;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+          }
+
+          .panel-header,
+          .author-name,
+          .post-title,
+          .lb-name {
+            color: #e5e7eb;
+          }
+
+          .panel-empty,
+          .post-time,
+          .rank-number {
+            color: #9ca3af;
+          }
+
+          .compose-trigger {
+            background: #0f172a;
+            border-color: #334155;
+            color: #94a3b8;
+          }
+
+          .compose-title,
+          .compose-body,
+          .filter-btn,
+          .action-btn {
+            color: #d1d5db;
+          }
+
+          .filter-btn:hover,
+          .action-btn:hover {
+            background: #1f2937;
+            color: #f3f4f6;
+          }
+
+          .post-actions,
+          .panel-header,
+          .compose-toolbar {
+            border-color: #273449;
+          }
+
+          :global(.comments-section) {
+            background: #0f172a;
+            border-top-color: #273449;
+          }
+
+          :global(.li-comment-card) {
+            background: #111827;
+          }
+
+          :global(.li-comment-name),
+          :global(.li-comment-text) {
+            color: #e5e7eb;
+          }
+
+          :global(.li-comment-name-date),
+          :global(.li-replies-count) {
+            color: #94a3b8;
+          }
+
+          :global(.li-inline-action),
+          :global(.li-inline-reply) {
+            color: #cbd5e1;
+          }
+
+          :global(.li-inline-action:hover),
+          :global(.li-inline-reply:hover),
+          :global(.li-inline-reply.li-active) {
+            color: #93c5fd;
+          }
+
+          :global(.li-replies-thread) {
+            border-left-color: #334155;
+          }
+
+          :global(.li-new-comment-box),
+          :global(.li-reply-input-box) {
+            background: #111827;
+            border-color: #334155;
+          }
+
+          :global(.li-new-comment-input),
+          :global(.li-reply-input) {
+            color: #e5e7eb;
+          }
+
+          :global(.li-send-btn) {
+            background: #1f2937;
+            border-color: #334155;
+            color: #cbd5e1;
+          }
+
+          :global(.li-send-btn:hover) {
+            background: #334155;
+          }
+
+          :global(.li-hide-replies-btn) {
+            background: transparent;
+            color: #cbd5e1;
+          }
+
+          :global(.li-hide-replies-btn.closed) {
+            color: #bfdbfe;
+          }
+
+          :global(.li-hide-replies-btn.open) {
+            color: #fecdd3;
+          }
+
+          :global(.li-hide-replies-btn:hover) {
+            text-decoration-color: currentColor;
+          }
+
+          .ec-share-popover {
+            background: #111827;
+            border-color: #374151;
+          }
+
+          .ec-delete-modal {
+            background: #111827;
+            border-color: #374151;
+          }
+
+          .ec-delete-title {
+            color: #e5e7eb;
+          }
+
+          .ec-delete-message {
+            color: #94a3b8;
+          }
+
+          .ec-share-title {
+            color: #f7b596;
+          }
+
+          .ec-share-link-input {
+            background: #0f172a;
+            border-color: #374151;
+            color: #e9d5ff;
+          }
+
+          .post-menu-trigger {
+            color: #cbd5e1;
+          }
+
+          .post-menu-trigger:hover {
+            background: #1f2937;
+            color: #f8fafc;
+          }
+
+          .post-menu-dropdown {
+            background: #111827;
+            border-color: #374151;
+          }
+
+          .post-menu-item {
+            color: #e5e7eb;
+          }
+
+          .post-menu-item:hover {
+            background: #1f2937;
+          }
+
+          .post-menu-item.danger {
+            color: #fca5a5;
+          }
+
+          .post-menu-item.danger:hover {
+            background: rgba(239, 68, 68, 0.16);
+          }
+        }
+
+        :global(html[data-theme="dark"]) .ec-wrapper {
+          background: #0b1220;
+        }
+
+        :global(html[data-theme="dark"]) .ec-card,
+        :global(html[data-theme="dark"]) .ec-panel,
+        :global(html[data-theme="dark"]) .ec-filters {
+          background: #111827;
+          border-color: #233047;
+          box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        :global(html[data-theme="dark"]) .panel-header,
+        :global(html[data-theme="dark"]) .author-name,
+        :global(html[data-theme="dark"]) .post-title,
+        :global(html[data-theme="dark"]) .lb-name {
+          color: #e5e7eb;
+        }
+
+        :global(html[data-theme="dark"]) .panel-empty,
+        :global(html[data-theme="dark"]) .post-time,
+        :global(html[data-theme="dark"]) .rank-number {
+          color: #9ca3af;
+        }
+
+        :global(html[data-theme="dark"]) .compose-trigger {
+          background: #0f172a;
+          border-color: #334155;
+          color: #94a3b8;
+        }
+
+        :global(html[data-theme="dark"]) .compose-title,
+        :global(html[data-theme="dark"]) .compose-body,
+        :global(html[data-theme="dark"]) .filter-btn,
+        :global(html[data-theme="dark"]) .action-btn {
+          color: #d1d5db;
+        }
+
+        :global(html[data-theme="dark"]) .filter-btn:hover,
+        :global(html[data-theme="dark"]) .action-btn:hover {
+          background: #1f2937;
+          color: #f3f4f6;
+        }
+
+        :global(html[data-theme="dark"]) .post-actions,
+        :global(html[data-theme="dark"]) .panel-header,
+        :global(html[data-theme="dark"]) .compose-toolbar {
+          border-color: #273449;
+        }
+
+        :global(html[data-theme="dark"] .comments-section) {
+          background: #0f172a;
+          border-top-color: #273449;
+        }
+
+        :global(html[data-theme="dark"] .li-comment-card) {
+          background: #111827;
+        }
+
+        :global(html[data-theme="dark"] .li-comment-name),
+        :global(html[data-theme="dark"] .li-comment-text) {
+          color: #e5e7eb;
+        }
+
+        :global(html[data-theme="dark"] .li-comment-name-date),
+        :global(html[data-theme="dark"] .li-replies-count) {
+          color: #94a3b8;
+        }
+
+        :global(html[data-theme="dark"] .li-inline-action),
+        :global(html[data-theme="dark"] .li-inline-reply) {
+          color: #cbd5e1;
+        }
+
+        :global(html[data-theme="dark"] .li-inline-action:hover),
+        :global(html[data-theme="dark"] .li-inline-reply:hover),
+        :global(html[data-theme="dark"] .li-inline-reply.li-active) {
+          color: #93c5fd;
+        }
+
+        :global(html[data-theme="dark"] .li-replies-thread) {
+          border-left-color: #334155;
+        }
+
+        :global(html[data-theme="dark"] .li-new-comment-box),
+        :global(html[data-theme="dark"] .li-reply-input-box) {
+          background: #111827;
+          border-color: #334155;
+        }
+
+        :global(html[data-theme="dark"] .li-new-comment-input),
+        :global(html[data-theme="dark"] .li-reply-input) {
+          color: #e5e7eb;
+        }
+
+        :global(html[data-theme="dark"] .li-send-btn) {
+          background: #1f2937;
+          border-color: #334155;
+          color: #cbd5e1;
+        }
+
+        :global(html[data-theme="dark"] .li-send-btn:hover) {
+          background: #334155;
+        }
+
+        :global(html[data-theme="dark"] .li-hide-replies-btn) {
+          background: transparent;
+          color: #cbd5e1;
+        }
+
+        :global(html[data-theme="dark"] .li-hide-replies-btn.closed) {
+          color: #bfdbfe;
+        }
+
+        :global(html[data-theme="dark"] .li-hide-replies-btn.open) {
+          color: #fecdd3;
+        }
+
+        :global(html[data-theme="dark"] .li-hide-replies-btn:hover) {
+          text-decoration-color: currentColor;
+        }
+
+        :global(html[data-theme="dark"]) .ec-share-popover {
+          background: #111827;
+          border-color: #374151;
+        }
+
+        :global(html[data-theme="dark"]) .ec-delete-modal {
+          background: #111827;
+          border-color: #374151;
+        }
+
+        :global(html[data-theme="dark"]) .ec-delete-title {
+          color: #e5e7eb;
+        }
+
+        :global(html[data-theme="dark"]) .ec-delete-message {
+          color: #94a3b8;
+        }
+
+        :global(html[data-theme="dark"]) .ec-share-title {
+          color: #f7b596;
+        }
+
+        :global(html[data-theme="dark"]) .ec-share-link-input {
+          background: #0f172a;
+          border-color: #374151;
+          color: #e9d5ff;
+        }
+
+        :global(html[data-theme="dark"]) .post-menu-trigger {
+          color: #cbd5e1;
+        }
+
+        :global(html[data-theme="dark"]) .post-menu-trigger:hover {
+          background: #1f2937;
+          color: #f8fafc;
+        }
+
+        :global(html[data-theme="dark"]) .post-menu-dropdown {
+          background: #111827;
+          border-color: #374151;
+        }
+
+        :global(html[data-theme="dark"]) .post-menu-item {
+          color: #e5e7eb;
+        }
+
+        :global(html[data-theme="dark"]) .post-menu-item:hover {
+          background: #1f2937;
+        }
+
+        :global(html[data-theme="dark"]) .post-menu-item.danger {
+          color: #fca5a5;
+        }
+
+        :global(html[data-theme="dark"]) .post-menu-item.danger:hover {
+          background: rgba(239, 68, 68, 0.16);
         }
       `}</style>
     </>

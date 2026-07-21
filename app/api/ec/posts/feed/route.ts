@@ -23,6 +23,9 @@ const buildTree = (comments: any[]) => {
 
 export async function GET(req: NextRequest) {
   try {
+    const { searchParams } = new URL(req.url);
+    const mode = (searchParams.get("mode") || "recent").toLowerCase();
+
     /* 🔐 Get current user */
     const token = req.cookies.get("access_token")?.value;
     let currentUserId = null;
@@ -52,9 +55,11 @@ export async function GET(req: NextRequest) {
         p.category,
         p.created_at,
         u.username,
+        p.userid,
         
         (SELECT COUNT(*) FROM ec_likes l WHERE l.post_id = p.id) AS likes,
         (SELECT COUNT(*) FROM ec_comments c WHERE c.post_id = p.id) AS comments,
+        (SELECT MAX(c.created_at) FROM ec_comments c WHERE c.post_id = p.id) AS latest_comment_at,
         
         (SELECT image_path FROM ec_post_images 
          WHERE post_id = p.id 
@@ -138,15 +143,90 @@ export async function GET(req: NextRequest) {
       /* Step 2: Convert to tree */
       const postComments = buildTree(flatComments);
 
+      const likesCount = Number(post.likes || 0);
+      const commentsCount = Number(post.comments || 0);
+      const createdAt = new Date(post.created_at).getTime();
+      const latestCommentAt = post.latest_comment_at
+        ? new Date(post.latest_comment_at).getTime()
+        : 0;
+      const latestInteractionAt = Math.max(createdAt, latestCommentAt || 0);
+
       return {
         ...post,
+        likes: likesCount,
+        comments: commentsCount,
         commentsList: postComments,
         liked: userLikes.includes(post.id) ? 1 : 0,
         saved: userBookmarks.includes(post.id),
+        latestInteractionAt,
       };
     });
 
-    return NextResponse.json(postsWithData);
+    const getTrendingScore = (post: any) => {
+      const now = Date.now();
+      const createdAt = new Date(post.created_at).getTime();
+      const hoursSincePost = Math.max((now - createdAt) / (1000 * 60 * 60), 1);
+      const engagement = post.likes * 3 + post.comments * 4;
+      const interactionRecencyBoost =
+        post.latestInteractionAt > 0
+          ? 96 / Math.max((now - post.latestInteractionAt) / (1000 * 60 * 60), 1)
+          : 0;
+
+      return engagement + interactionRecencyBoost + 24 / hoursSincePost;
+    };
+
+    let finalPosts = postsWithData;
+
+    switch (mode) {
+      case "saved":
+        finalPosts = postsWithData
+          .filter((post: any) => post.saved)
+          .sort(
+            (a: any, b: any) =>
+              new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+          );
+        break;
+      case "my-posts":
+        finalPosts = postsWithData
+          .filter((post: any) => currentUserId && post.userid === currentUserId)
+          .sort(
+            (a: any, b: any) =>
+              new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+          );
+        break;
+      case "most-liked":
+        finalPosts = [...postsWithData].sort(
+          (a: any, b: any) =>
+            b.likes - a.likes ||
+            b.latestInteractionAt - a.latestInteractionAt ||
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+        );
+        break;
+      case "most-discussed":
+        finalPosts = [...postsWithData].sort(
+          (a: any, b: any) =>
+            b.comments - a.comments ||
+            b.latestInteractionAt - a.latestInteractionAt ||
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+        );
+        break;
+      case "trending":
+        finalPosts = [...postsWithData].sort(
+          (a: any, b: any) =>
+            getTrendingScore(b) - getTrendingScore(a) ||
+            b.latestInteractionAt - a.latestInteractionAt,
+        );
+        break;
+      case "recent":
+      default:
+        finalPosts = [...postsWithData].sort(
+          (a: any, b: any) =>
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+        );
+        break;
+    }
+
+    return NextResponse.json(finalPosts);
 
   } catch (err) {
     console.error("Feed API error:", err);

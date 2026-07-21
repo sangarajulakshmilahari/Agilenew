@@ -41,6 +41,17 @@ export async function GET(req: NextRequest) {
       [keycloakId]
     );
 
+    const [roleRows]: any = await pool.execute(
+      `
+      SELECT r.role_name
+      FROM users u
+      JOIN user_roles ur ON u.userid = ur.userid
+      JOIN roles r ON ur.role_id = r.role_id
+      WHERE u.keycloak_id = ?
+      `,
+      [keycloakId]
+    );
+
     if (rows.length === 0) {
       return NextResponse.json(
         { error: "User has no assigned roles" },
@@ -52,10 +63,12 @@ export async function GET(req: NextRequest) {
 
     // Remove duplicates (if multiple roles)
     const apps = [...new Set(rows.map((row: any) => row.app_name))];
+    const roles = [...new Set(roleRows.map((row: any) => row.role_name))];
 
     return NextResponse.json({
       username,
       apps,
+      roles,
     });
 
   } catch (error) {

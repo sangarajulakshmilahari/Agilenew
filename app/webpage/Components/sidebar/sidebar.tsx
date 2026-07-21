@@ -1,4 +1,5 @@
 "use client";
+import Image from "next/image";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faHouse,
@@ -81,7 +82,21 @@ export default function Sidebar({
           <div className="sb-gradient" />
           <div className="sb-orb sb-orb-1" />
           <div className="sb-orb sb-orb-2" />
+          <div className="sb-mesh sb-mesh-bottom" />
+          <div className="sb-dots sb-dots-bottom" />
+          <div className="sb-bottom-glow" />
           <div className="sb-shimmer" />
+        </div>
+
+        <div className={`sidebar-brand ${open ? "" : "brand-collapsed"}`}>
+          <Image
+            src={open ? "/image.png" : "/logoshort.png"}
+            alt="Adroitent logo"
+            width={open ? 316 : 64}
+            height={open ? 30 : 64}
+            priority
+            className="brand-logo"
+          />
         </div>
 
         {/* Toggle — hidden on mobile */}
@@ -168,20 +183,54 @@ export default function Sidebar({
       <style jsx>{`
         .sidebar {
           position: relative;
-          height: 100%;
-          border-radius: var(--radius-lg);
+          height: 100vh;
+          border-radius: 0;
           display: flex;
           flex-direction: column;
-          padding: 18px 10px;
-          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-          border: 1px solid rgba(124, 58, 237, 0.1);
-          box-shadow: var(--shadow-sm);
+          padding: 22px 12px 16px;
+          overflow: visible;
+          transition: all var(--motion-base) var(--motion-ease);
+          border: 1px solid rgba(132, 161, 219, 0.24);
+          box-shadow: 0 18px 34px rgba(7, 20, 49, 0.35);
+          background: linear-gradient(180deg, #123a78 0%, #0d2f66 100%);
         }
         .sidebar.expanded {
           width: var(--sidebar-w-open);
         }
         .sidebar.collapsed {
           width: var(--sidebar-w-closed);
+        }
+
+        .sidebar-brand {
+          position: relative;
+          z-index: 1;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          min-height: 62px;
+          margin: 2px 8px 14px;
+          padding: 4px 4px 6px;
+          border-bottom: none;
+          overflow: hidden;
+        }
+        .sidebar-brand.brand-collapsed {
+          justify-content: center;
+          margin: 4px 0 12px;
+          padding: 2px 0 10px;
+        }
+        .brand-logo {
+          display: block;
+          height: auto;
+          width: 360px;
+          max-width: none;
+          object-fit: contain;
+          transform: scale(1.18);
+          transform-origin: center;
+        }
+        .sidebar-brand.brand-collapsed .brand-logo {
+          width: calc(var(--sidebar-w-closed) - 12px);
+          max-width: 64px;
+          transform: none;
         }
 
         /* ---- Animated background ---- */
@@ -195,29 +244,29 @@ export default function Sidebar({
         .sb-gradient {
           position: absolute;
           inset: 0;
-          background: var(--bg-card);
+          background: linear-gradient(180deg, #123a78 0%, #0d2f66 100%);
         }
         .sb-orb {
           position: absolute;
           border-radius: 50%;
           filter: blur(35px);
-          opacity: 0.5;
+          opacity: 0.16;
         }
         .sb-orb-1 {
           width: 100px;
           height: 100px;
-          background: radial-gradient(circle, #c4b5fd, transparent 70%);
+          background: radial-gradient(circle, rgba(148, 187, 255, 0.09), transparent 70%);
           top: -20px;
           right: -30px;
-          animation: sideOrb1 14s ease-in-out infinite;
+          animation: none;
         }
         .sb-orb-2 {
           width: 80px;
           height: 80px;
-          background: radial-gradient(circle, #a5b4fc, transparent 70%);
+          background: radial-gradient(circle, rgba(86, 142, 255, 0.07), transparent 70%);
           bottom: 60px;
           left: -20px;
-          animation: sideOrb2 18s ease-in-out infinite;
+          animation: none;
         }
         @keyframes sideOrb1 {
           0%,
@@ -240,17 +289,103 @@ export default function Sidebar({
         .sb-shimmer {
           position: absolute;
           inset: 0;
-          background: linear-gradient(
-            180deg,
-            transparent 0%,
-            rgba(124, 58, 237, 0.03) 40%,
-            rgba(168, 85, 247, 0.04) 50%,
-            rgba(124, 58, 237, 0.03) 60%,
-            transparent 100%
-          );
-          background-size: 100% 300%;
-          animation: shimmerVert 10s ease-in-out infinite;
+          background: linear-gradient(120deg, transparent 0%, rgba(255, 255, 255, 0.015) 35%, transparent 70%);
+          background-size: 220% 220%;
+          animation: none;
         }
+
+        .sb-mesh {
+          position: absolute;
+          left: -18%;
+          width: 78%;
+          height: 42%;
+          opacity: 0.06;
+          background:
+            repeating-radial-gradient(
+              ellipse at 50% 115%,
+              rgba(176, 198, 255, 0.5) 0px,
+              rgba(176, 198, 255, 0.5) 1px,
+              transparent 2px,
+              transparent 10px
+            );
+          filter: drop-shadow(0 0 8px rgba(146, 191, 255, 0.12));
+        }
+        .sb-mesh-bottom {
+          bottom: -10%;
+          transform: rotate(-5deg) scaleX(-1);
+          mask-image: linear-gradient(to top, rgba(0, 0, 0, 0.95) 24%, transparent 86%);
+          -webkit-mask-image: linear-gradient(to top, rgba(0, 0, 0, 0.95) 24%, transparent 86%);
+          animation: meshFloat 24s ease-in-out infinite;
+        }
+
+        .sb-dots {
+          position: absolute;
+          opacity: 0.08;
+          background-image: radial-gradient(circle, rgba(184, 221, 255, 0.92) 1.1px, transparent 1.2px);
+          background-size: 11px 11px;
+          filter: drop-shadow(0 0 6px rgba(170, 211, 255, 0.22));
+        }
+        .sb-dots-bottom {
+          left: -4%;
+          bottom: 1%;
+          width: 72%;
+          height: 30%;
+          opacity: 0.06;
+          mask-image: linear-gradient(to top, rgba(0, 0, 0, 0.92) 30%, transparent 88%);
+          -webkit-mask-image: linear-gradient(to top, rgba(0, 0, 0, 0.92) 30%, transparent 88%);
+          animation: dotsDrift 26s linear infinite;
+        }
+
+        .sb-bottom-glow {
+          position: absolute;
+          left: -10%;
+          right: -10%;
+          bottom: -14%;
+          height: 52%;
+          background: radial-gradient(
+            ellipse at 50% 100%,
+            rgba(102, 165, 255, 0.14) 0%,
+            rgba(82, 138, 243, 0.1) 38%,
+            rgba(48, 95, 190, 0.04) 62%,
+            transparent 84%
+          );
+          filter: blur(10px);
+          animation: glowPulse 24s ease-in-out infinite;
+        }
+
+        @keyframes meshFloat {
+          0% {
+            transform: translateY(0px) translateX(0px) scale(1);
+          }
+          50% {
+            transform: translateY(-9px) translateX(-4px) scale(1.05);
+          }
+          100% {
+            transform: translateY(6px) translateX(3px) scale(0.98);
+          }
+        }
+
+        @keyframes dotsDrift {
+          0% {
+            background-position: 0 0;
+          }
+          100% {
+            background-position: 30px -22px;
+          }
+        }
+
+        @keyframes glowPulse {
+          0%,
+          100% {
+            opacity: 0.68;
+            transform: translateY(0px) scale(1);
+          }
+          50% {
+            opacity: 1;
+            transform: translateY(-4px) scale(1.05);
+          }
+        }
+
         @keyframes shimmerVert {
           0% {
             background-position: 0% 100%;
@@ -267,33 +402,43 @@ export default function Sidebar({
         .toggle-btn {
           position: absolute;
           top: 16px;
-          right: -12px;
-          width: 24px;
-          height: 24px;
-          background: var(--bg-card-solid);
-          border: 1px solid rgba(124, 58, 237, 0.15);
+          right: -15px;
+          width: 30px;
+          height: 30px;
+          background: #ffffff;
+          border: 2px solid #0b2b67;
           border-radius: 50%;
           display: flex;
           align-items: center;
           justify-content: center;
           cursor: pointer;
-          box-shadow: 0 2px 8px rgba(124, 58, 237, 0.1);
-          color: var(--accent);
+          box-shadow:
+            0 8px 18px rgba(31, 58, 104, 0.3),
+            0 2px 8px rgba(7, 20, 49, 0.24);
+          color: #1f3a68;
           transition: all 0.25s ease;
-          z-index: 5;
+          z-index: 60;
         }
         .toggle-btn:hover {
-          background: var(--accent);
-          color: white;
-          border-color: var(--accent);
-          transform: scale(1.15);
-          box-shadow: 0 4px 14px rgba(124, 58, 237, 0.3);
+          background: #f26522;
+          border: 2px solid #f26522;
+          color: #ffffff;
+          transform: scale(1.08);
+          box-shadow:
+            0 10px 20px rgba(242, 101, 34, 0.46),
+            0 3px 10px rgba(7, 20, 49, 0.26);
+        }
+        .toggle-btn:active {
+          transform: scale(0.96);
+        }
+        .sidebar.collapsed .toggle-btn {
+          right: -15px;
         }
 
         /* ---- Nav ---- */
         .nav-section {
           flex: 1;
-          padding-top: 6px;
+          padding-top: 2px;
           position: relative;
           z-index: 1;
         }
@@ -315,8 +460,8 @@ export default function Sidebar({
           cursor: pointer;
           font-size: 13px;
           font-weight: 500;
-          color: var(--text-secondary);
-          transition: all 0.25s ease;
+          color: rgba(233, 241, 255, 0.9);
+          transition: all 250ms ease;
           animation: menuFadeIn 0.35s ease backwards;
           overflow: hidden;
         }
@@ -331,27 +476,44 @@ export default function Sidebar({
           }
         }
         li:hover {
-          background: rgba(124, 58, 237, 0.06);
-          color: var(--text-primary);
+          background: rgba(214, 230, 255, 0.12);
+          color: #ffffff;
+          box-shadow: 0 0 0 1px rgba(201, 221, 255, 0.12), 0 8px 18px rgba(8, 26, 61, 0.22);
         }
         li:hover .icon-box:not(.icon-active) {
-          background: rgba(124, 58, 237, 0.1);
-          color: var(--accent);
-          transform: scale(1.05);
+          background: rgba(214, 230, 255, 0.2);
+          color: #ffffff;
+          transform: translateX(4px) scale(1.03);
+        }
+        li:hover .label-text {
+          transform: translateX(2px);
         }
         li.active {
           background: linear-gradient(
-            135deg,
-            rgba(124, 58, 237, 0.1) 0%,
-            rgba(168, 85, 247, 0.08) 100%
+            120deg,
+            rgba(178, 206, 255, 0.24) 0%,
+            rgba(169, 201, 255, 0.12) 100%
           );
-          color: var(--accent);
+          color: #ffffff;
+          box-shadow: 0 8px 20px rgba(10, 28, 66, 0.38);
+          border: 1px solid rgba(201, 221, 255, 0.32);
+        }
+        li.active::before {
+          content: "";
+          position: absolute;
+          left: 0;
+          top: 9px;
+          bottom: 9px;
+          width: 3px;
+          border-radius: 0 6px 6px 0;
+          background: #f26522;
+          box-shadow: 0 0 10px rgba(242, 101, 34, 0.52);
         }
         .active-glow {
           position: absolute;
           inset: 0;
           border-radius: inherit;
-          box-shadow: inset 0 0 0 1px rgba(124, 58, 237, 0.12);
+          box-shadow: inset 3px 0 0 0 #1f3a68;
           pointer-events: none;
         }
 
@@ -364,23 +526,23 @@ export default function Sidebar({
           justify-content: center;
           font-size: 14px;
           flex-shrink: 0;
-          background: var(--bg-soft);
-          color: var(--text-secondary);
-          transition: all 0.25s ease;
+          background: rgba(255, 255, 255, 0.12);
+          color: rgba(233, 241, 255, 0.9);
+          transition: all var(--motion-fast) var(--motion-ease);
           position: relative;
         }
         .icon-active {
-          background: var(--gradient-primary) !important;
+          background: #f26522 !important;
           color: white !important;
-          box-shadow: 0 4px 14px rgba(124, 58, 237, 0.3);
+          box-shadow: 0 6px 14px rgba(242, 101, 34, 0.34);
         }
         .icon-ring {
           position: absolute;
           inset: -3px;
           border-radius: 14px;
-          border: 2px solid rgba(168, 85, 247, 0.2);
-          background: rgba(168, 85, 247, 0.02);
-          animation: iconGlow 3.8s ease-in-out infinite;
+          border: 2px solid rgba(31, 58, 104, 0.35);
+          background: rgba(31, 58, 104, 0.12);
+          animation: iconGlow 2s ease-in-out infinite;
           pointer-events: none;
         }
         @keyframes iconGlow {
@@ -388,17 +550,17 @@ export default function Sidebar({
           100% {
             transform: scale(1);
             opacity: 0.9;
-            box-shadow: 0 0 0 0 rgba(168, 85, 247, 0.14);
+            box-shadow: 0 0 0 0 rgba(31, 58, 104, 0.22);
           }
           50% {
             transform: scale(1.04);
             opacity: 1;
-            box-shadow: 0 0 0 8px rgba(168, 85, 247, 0);
+            box-shadow: 0 0 0 8px rgba(31, 58, 104, 0);
           }
         }
 
         li.active .label-text {
-          color: var(--accent);
+          color: #ffffff;
           font-weight: 700;
         }
         .label-text {
@@ -406,6 +568,7 @@ export default function Sidebar({
           overflow: hidden;
           text-overflow: ellipsis;
           animation: labelSlide 0.25s ease;
+          transition: transform 250ms ease;
         }
         .desktop-hidden {
           display: none;
@@ -426,11 +589,33 @@ export default function Sidebar({
           position: relative;
           z-index: 1;
           padding-top: 14px;
-          border-top: 1px solid rgba(124, 58, 237, 0.08);
+          border-top: 1px solid rgba(218, 232, 255, 0.22);
           margin-top: 14px;
           display: flex;
           flex-direction: column;
           gap: 10px;
+          overflow: hidden;
+        }
+
+        .sidebar-footer::before {
+          content: "";
+          position: absolute;
+          left: -22%;
+          bottom: -42%;
+          width: 84%;
+          height: 145%;
+          pointer-events: none;
+          opacity: 0.02;
+          background:
+            radial-gradient(circle at 18% 82%, rgba(210, 228, 255, 0.9) 0.8px, transparent 1.2px),
+            radial-gradient(circle at 36% 69%, rgba(210, 228, 255, 0.8) 0.8px, transparent 1.2px),
+            radial-gradient(circle at 58% 80%, rgba(210, 228, 255, 0.8) 0.8px, transparent 1.2px),
+            linear-gradient(130deg, transparent 28%, rgba(210, 228, 255, 0.7) 29%, transparent 31%),
+            linear-gradient(160deg, transparent 42%, rgba(210, 228, 255, 0.65) 43%, transparent 45%);
+          mask-image: linear-gradient(to top, rgba(0, 0, 0, 0.95) 18%, transparent 90%);
+          -webkit-mask-image: linear-gradient(to top, rgba(0, 0, 0, 0.95) 18%, transparent 90%);
+          transform: translate3d(0, 0, 0);
+          animation: meshFloat 28s ease-in-out infinite;
         }
 
         /* LinkedIn row (expanded) */
@@ -440,24 +625,24 @@ export default function Sidebar({
           gap: 10px;
           padding: 8px 10px;
           border-radius: 12px;
-          border: 1px solid rgba(10, 102, 194, 0.18);
-          background: rgba(10, 102, 194, 0.05);
+          border: 1px solid rgba(218, 232, 255, 0.22);
+          background: rgba(255, 255, 255, 0.1);
           text-decoration: none;
           cursor: pointer;
           transition: all 0.25s ease;
-          color: inherit;
+          color: #ffffff;
         }
         .linkedin-row:hover {
-          background: rgba(10, 102, 194, 0.12);
-          border-color: rgba(10, 102, 194, 0.35);
-          transform: translateX(3px);
-          box-shadow: 0 4px 14px rgba(10, 102, 194, 0.15);
+          background: rgba(255, 255, 255, 0.14);
+          border-color: rgba(218, 232, 255, 0.35);
+          transform: translateX(2px);
+          box-shadow: 0 4px 14px rgba(8, 26, 61, 0.4);
         }
         .li-icon-wrap {
           width: 30px;
           height: 30px;
           border-radius: 8px;
-          background: linear-gradient(135deg, #0a66c2, #0073b1);
+          background: #0A66C2;
           display: flex;
           align-items: center;
           justify-content: center;
@@ -481,12 +666,12 @@ export default function Sidebar({
         }
         .li-sub {
           font-size: 13px;
-          color: #0a66c2;
+          color: #ffffff;
           font-weight: 600;
         }
         .li-arrow {
           font-size: 13px;
-          color: #0a66c2;
+          color: rgba(255, 255, 255, 0.84);
           opacity: 0.7;
           transition: transform 0.2s ease;
         }
@@ -503,7 +688,7 @@ export default function Sidebar({
           width: 36px;
           height: 36px;
           border-radius: 11px;
-          background: linear-gradient(135deg, #0a66c2, #0073b1);
+          background: #0A66C2;
           color: white;
           font-size: 16px;
           text-decoration: none;
@@ -518,7 +703,7 @@ export default function Sidebar({
 
         .footer-divider {
           height: 1px;
-          background: rgba(124, 58, 237, 0.08);
+          background: rgba(218, 232, 255, 0.22);
         }
 
         .status-row {
@@ -526,7 +711,7 @@ export default function Sidebar({
           align-items: center;
           gap: 8px;
           font-size: 11px;
-          color: var(--text-muted);
+          color: rgba(233, 241, 255, 0.86);
           padding: 0 8px;
         }
         .status-dot {
@@ -574,6 +759,15 @@ export default function Sidebar({
           .icon-box {
             width: 40px;
             height: 40px;
+          }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          *,
+          *::before,
+          *::after {
+            animation: none !important;
+            transition: none !important;
           }
         }
 

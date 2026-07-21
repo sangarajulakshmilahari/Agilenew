@@ -2,7 +2,7 @@ import React from "react";
 import Image from "next/image";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { Bell, Cake, PartyPopper, Gift, Send, X, Mail } from "lucide-react";
+import { Cake, PartyPopper, Gift, X, Mail } from "lucide-react";
 
 export default function RightPanel() {
   type Birthday = {
@@ -24,8 +24,11 @@ export default function RightPanel() {
   ];
 
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [bdayLoading, setBdayLoading] = useState(true);
+  const [carouselReady, setCarouselReady] = useState(false);
+  const [lightboxImg, setLightboxImg] = useState<string | null>(null);
 
-  const confettiColors = ["#7c3aed","#a855f7","#60a5fa","#f472b6","#fbbf24","#34d399","#f87171","#c084fc"];
+  const confettiColors = ["#F26522","#1F3A68","#475569","#F8F4EF","#d97745","#2f4d7f","#8fa1bb","#f3ded1"];
   const shapes = ["circle","square","ribbon"];
 
   function spawnConfetti() {
@@ -50,7 +53,7 @@ export default function RightPanel() {
   }, []);
 
   useEffect(() => {
-    (async () => { try { const r = await fetch("/api/birthdays"); setBirthdays(await r.json()); } catch {} })();
+    (async () => { try { const r = await fetch("/api/birthdays"); setBirthdays(await r.json()); } catch {} finally { setBdayLoading(false); } })();
   }, []);
 
   useEffect(() => {
@@ -63,12 +66,21 @@ export default function RightPanel() {
   }, [selectedPerson]);
 
   const avatarColors = [
-    "linear-gradient(135deg, #7c3aed, #a855f7)",
-    "linear-gradient(135deg, #6366f1, #818cf8)",
-    "linear-gradient(135deg, #8b5cf6, #c084fc)",
-    "linear-gradient(135deg, #a855f7, #ec4899)",
-    "linear-gradient(135deg, #6d28d9, #7c3aed)",
+    "#1F3A68",
+    "#F26522",
+    "#475569",
+    "#1F3A68",
+    "#475569",
   ];
+
+  function formatBdayDate(dob: string) {
+    try {
+      const d = new Date(dob);
+      const month = d.toLocaleDateString("en-US", { month: "short" });
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${month}-${day}`;
+    } catch { return dob; }
+  }
 
   // Check if a birthday is today
   const todayStr = new Date().toLocaleDateString("en-US", { month: "short", day: "2-digit" });
@@ -88,12 +100,15 @@ export default function RightPanel() {
           <h3>Past Events</h3>
           <span className="badge">{eventImages.length} Photos</span>
         </div>
-        <div className="carousel">
-          <Image src={eventImages[currentIndex]} alt="event" fill priority style={{ objectFit: "cover" }} />
+        <div className="carousel" onClick={() => setLightboxImg(eventImages[currentIndex])}>
+          {!carouselReady && <div className="carousel-skeleton" />}
+          <div className="carousel-image-layer" key={eventImages[currentIndex]}>
+            <Image src={eventImages[currentIndex]} alt="event" fill priority style={{ objectFit: "cover" }} onLoad={() => setCarouselReady(true)} />
+          </div>
           <div className="carousel-fade" />
-          <button className="cbtn cl" onClick={() => setCurrentIndex(p => p === 0 ? eventImages.length - 1 : p - 1)}>‹</button>
-          <button className="cbtn cr" onClick={() => setCurrentIndex(p => p === eventImages.length - 1 ? 0 : p + 1)}>›</button>
-          <div className="dots">
+          <button className="cbtn cl" onClick={(e) => { e.stopPropagation(); setCurrentIndex(p => p === 0 ? eventImages.length - 1 : p - 1); }}>‹</button>
+          <button className="cbtn cr" onClick={(e) => { e.stopPropagation(); setCurrentIndex(p => p === eventImages.length - 1 ? 0 : p + 1); }}>›</button>
+          <div className="dots" onClick={e => e.stopPropagation()}>
             {eventImages.map((_, i) => (
               <span key={i} className={`dot ${i === currentIndex ? "on" : ""}`} onClick={() => setCurrentIndex(i)} />
             ))}
@@ -112,28 +127,39 @@ export default function RightPanel() {
           </h3>
         </div>
         <div className="bday-list">
-          {birthdays.map((person, idx) => {
-            const isToday = isTodayBirthday(person.date_of_birth);
-            return (
-              <div
-                key={person.slno}
-                className={`bday-row ${isToday ? "today" : ""}`}
-                onClick={() => setSelectedPerson(person)}
-              >
-                <div className="avatar" style={{ background: avatarColors[idx % avatarColors.length] }}>
-                  {person.employee.split(" ").map(n => n[0]).join("").substring(0, 2)}
+          {bdayLoading
+            ? [0, 1, 2, 3, 4].map(i => (
+                <div key={i} className="bday-row skeleton-row">
+                  <div className="skeleton-avatar skeleton-pulse" />
+                  <div className="bday-info">
+                    <div className="skeleton-line skeleton-pulse" style={{ width: "60%", height: 12, borderRadius: 4, marginBottom: 6 }} />
+                    <div className="skeleton-line skeleton-pulse" style={{ width: "35%", height: 10, borderRadius: 4 }} />
+                  </div>
                 </div>
-                <div className="bday-info">
-                  <span className="bday-name">{person.employee}</span>
-                  <span className="bday-date">{person.date_of_birth}</span>
-                </div>
-                {isToday
-                  ? <span className="today-badge"><PartyPopper size={13} className="today-icon" /> Today!</span>
-                  : <button className="wish-btn"><Gift size={16} color="#7c3aed" /></button>
-                }
-              </div>
-            );
-          })}
+              ))
+            : birthdays.slice(0, 5).map((person, idx) => {
+                const isToday = isTodayBirthday(person.date_of_birth);
+                return (
+                  <div
+                    key={person.slno}
+                    className={`bday-row ${isToday ? "today" : ""}`}
+                    onClick={() => setSelectedPerson(person)}
+                  >
+                    <div className="avatar" style={{ background: avatarColors[idx % avatarColors.length] }}>
+                      {person.employee.split(" ").map(n => n[0]).join("").substring(0, 2)}
+                    </div>
+                    <div className="bday-info">
+                      <span className="bday-name">{person.employee}</span>
+                      <span className="bday-date">{formatBdayDate(person.date_of_birth)}</span>
+                    </div>
+                    {isToday
+                      ? <span className="today-badge"><PartyPopper size={13} className="today-icon" /> Today!</span>
+                      : <button className="wish-btn"><Gift size={16} color="#F26522" /></button>
+                    }
+                  </div>
+                );
+              })
+          }
         </div>
       </div>
 
@@ -164,7 +190,7 @@ export default function RightPanel() {
             <div className="modal-icon-wrap">
               <div className="modal-icon-ring" />
               <span className="modal-icon">
-                <Cake size={40} color="#7c3aed" strokeWidth={1.8} />
+                <Cake size={40} color="#F26522" strokeWidth={1.8} />
               </span>
             </div>
             <h4>Send Birthday Wishes?</h4>
@@ -187,6 +213,14 @@ export default function RightPanel() {
               </button>
             </div>
           </div>
+        </div>,
+        document.body,
+      )}
+
+      {lightboxImg && createPortal(
+        <div className="lightbox-overlay" onClick={() => setLightboxImg(null)}>
+          <img src={lightboxImg} alt="event" className="lightbox-img" onClick={e => e.stopPropagation()} />
+          <button className="lightbox-close" onClick={() => setLightboxImg(null)}>×</button>
         </div>,
         document.body,
       )}
@@ -220,14 +254,36 @@ export default function RightPanel() {
           backdrop-filter: blur(18px);
           -webkit-backdrop-filter: blur(18px);
           box-shadow: var(--shadow-sm);
-          transition: box-shadow 0.3s ease;
+          transition: transform 240ms ease, box-shadow 240ms ease;
+          transform: translate3d(0, 10px, 0);
+          opacity: 0;
+          animation: panelEnter 0.45s ease forwards;
         }
-        .panel-card:hover { box-shadow: var(--shadow-md); }
+        .events-card {
+          animation-delay: 200ms;
+        }
+        .birthday-card {
+          animation-delay: 300ms;
+        }
+        @keyframes panelEnter {
+          from {
+            opacity: 0;
+            transform: translate3d(0, 10px, 0);
+          }
+          to {
+            opacity: 1;
+            transform: translate3d(0, 0, 0);
+          }
+        }
+        .panel-card:hover {
+          box-shadow: 0 16px 30px rgba(15, 23, 42, 0.14);
+          transform: translate3d(0, -4px, 0);
+        }
 
         .card-decor { position: absolute; inset: 0; pointer-events: none; overflow: hidden; border-radius: inherit; }
-        .cd-orb { position: absolute; border-radius: 50%; filter: blur(50px); opacity: 0.4; }
-        .cd-orb-1 { width: 120px; height: 120px; background: radial-gradient(circle, #c4b5fd, transparent 70%); top: -30px; right: -20px; animation: orbFloat 16s ease-in-out infinite; }
-        .cd-orb-2 { width: 100px; height: 100px; background: radial-gradient(circle, #a5b4fc, transparent 70%); bottom: -20px; left: -10px; animation: orbFloat 22s ease-in-out infinite reverse; }
+        .cd-orb { position: absolute; border-radius: 50%; filter: blur(50px); opacity: 0.2; }
+        .cd-orb-1 { width: 120px; height: 120px; background: rgba(242,101,34,0.16); top: -30px; right: -20px; animation: none; }
+        .cd-orb-2 { width: 100px; height: 100px; background: rgba(31,58,104,0.12); bottom: -20px; left: -10px; animation: none; }
         @keyframes orbFloat { 0%,100% { transform: translate(0,0); } 50% { transform: translate(8px,6px); } }
 
         .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; position: relative; z-index: 1; }
@@ -236,12 +292,47 @@ export default function RightPanel() {
 
         /* header icons */
         .card-header h3 :global(.cake-icon) {
-          color: #7c3aed;
+          color: #F26522;
           flex-shrink: 0;
         }
 
         /* carousel */
-        .carousel { position: relative; height: 190px; border-radius: var(--radius-md); overflow: hidden; background: #f1f5f9; z-index: 1; }
+        .carousel { position: relative; height: 190px; border-radius: var(--radius-md); overflow: hidden; background: #f1f5f9; z-index: 1; cursor: pointer; }
+        .carousel-image-layer {
+          position: absolute;
+          inset: 0;
+          animation: carouselFadeIn 420ms ease;
+          will-change: opacity, transform;
+        }
+        @keyframes carouselFadeIn {
+          from {
+            opacity: 0.12;
+            transform: scale(1.01);
+          }
+          to {
+            opacity: 1;
+            transform: scale(1);
+          }
+        }
+
+        @keyframes skeletonShimmer {
+          0% { background-position: -400px 0; }
+          100% { background-position: 400px 0; }
+        }
+        .skeleton-pulse {
+          background: linear-gradient(90deg, var(--bg-soft) 25%, var(--bg-soft-hover) 50%, var(--bg-soft) 75%);
+          background-size: 800px 100%;
+          animation: skeletonShimmer 1.4s ease-in-out infinite;
+        }
+        .skeleton-row { pointer-events: none; border: 1px solid transparent !important; }
+        .skeleton-avatar { width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0; }
+        .skeleton-line { display: block; }
+        .carousel-skeleton {
+          position: absolute; inset: 0; z-index: 3; border-radius: inherit;
+          background: linear-gradient(90deg, var(--bg-soft) 25%, var(--bg-soft-hover) 50%, var(--bg-soft) 75%);
+          background-size: 800px 100%;
+          animation: skeletonShimmer 1.4s ease-in-out infinite;
+        }
         .carousel-fade { position: absolute; inset: 0; background: linear-gradient(to bottom, transparent 55%, rgba(0,0,0,0.4) 100%); z-index: 1; pointer-events: none; }
         .cbtn { position: absolute; top: 50%; transform: translateY(-50%); width: 30px; height: 30px; border-radius: 10px; background: var(--bg-card-solid); backdrop-filter: blur(8px); border: none; font-size: 16px; cursor: pointer; z-index: 2; color: var(--text-primary); display: flex; align-items: center; justify-content: center; opacity: 0; transition: all 0.2s ease; box-shadow: var(--shadow-sm); }
         .carousel:hover .cbtn { opacity: 1; }
@@ -254,20 +345,72 @@ export default function RightPanel() {
 
         /* birthdays */
         .bday-list { display: flex; flex-direction: column; gap: 10px; position: relative; z-index: 1; }
-        .bday-row { display: flex; align-items: center; gap: 12px; padding: 6px 12px; border-radius: var(--radius-sm); background: var(--bg-soft); border: 1px solid transparent; cursor: pointer; transition: all 0.25s ease; }
-        .bday-row:hover { background: var(--accent-light); border-color: var(--border-accent); transform: translateX(4px); }
-        .bday-row.today { background: linear-gradient(135deg, rgba(124,58,237,0.08), rgba(168,85,247,0.06)); border-color: rgba(124,58,237,0.2); animation: todayPulse 2s ease-in-out infinite; }
-        @keyframes todayPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(124,58,237,0.15); } 50% { box-shadow: 0 0 0 6px rgba(124,58,237,0); } }
+        .bday-row { display: flex; align-items: center; gap: 12px; padding: 6px 12px; border-radius: var(--radius-sm); background: var(--bg-soft); border: 1px solid transparent; cursor: pointer; transition: background 220ms ease, border-color 220ms ease, transform 220ms ease, box-shadow 220ms ease; }
+        .bday-row:hover { background: rgba(242, 101, 34, 0.09); border-color: rgba(242, 101, 34, 0.24); transform: translate3d(0, -1px, 0); box-shadow: 0 8px 18px rgba(31, 58, 104, 0.09); }
+        .bday-row.today { background: rgba(242,101,34,0.12); border-color: rgba(242,101,34,0.28); animation: todayPulse 2.8s ease-in-out infinite; }
+        @keyframes todayPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(242,101,34,0.18); } 50% { box-shadow: 0 0 0 6px rgba(242,101,34,0); } }
         .bday-row:hover .wish-btn { opacity: 1; transform: scale(1); }
 
-        .avatar { width: 38px; height: 38px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; color: white; flex-shrink: 0; }
+        .avatar { width: 38px; height: 38px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; color: white; flex-shrink: 0; transition: transform 220ms ease; }
+        .bday-row:hover .avatar { transform: scale(1.08); }
+        .view-all-birthdays { text-align: center; padding-top: 10px; }
+        .view-all-link { font-size: 13px; font-weight: 600; color: var(--accent); cursor: pointer; transition: opacity 0.2s ease; }
+        .view-all-link:hover { opacity: 0.75; }
         .bday-info { flex: 1; display: flex; flex-direction: column; min-width: 0; }
         .bday-name { font-size: 13px; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .bday-date { font-size: 12px; color: var(--text-muted); }
         .wish-btn { width: 34px; height: 32px; border-radius: 10px; border: none; background: var(--bg-card-solid); font-size: 16px; cursor: pointer; opacity: 0; transform: scale(0.8); transition: all 0.2s ease; box-shadow: var(--shadow-sm); display: flex; align-items: center; justify-content: center; }
-        .wish-btn:hover { background: rgba(124,58,237,0.08); }
-        .today-badge { font-size: 11px; font-weight: 700; color: var(--accent); background: var(--accent-light); padding: 3px 8px; border-radius: 999px; white-space: nowrap; flex-shrink: 0; display: inline-flex; align-items: center; gap: 3px; }
-        .today-badge :global(.today-icon) { color: #7c3aed; }
+        .wish-btn:hover { background: rgba(242,101,34,0.12); }
+        .wish-btn :global(svg) { transition: transform 220ms ease; }
+        .bday-row:hover .wish-btn :global(svg) { transform: rotate(-10deg); }
+
+        :global(html[data-theme="dark"]) .panel-card {
+          background: #123a78;
+          border-color: rgba(169, 198, 245, 0.22);
+          box-shadow: 0 10px 24px rgba(7, 20, 49, 0.36);
+        }
+        :global(html[data-theme="dark"]) .card-header h3 {
+          color: #ffffff;
+        }
+        :global(html[data-theme="dark"]) .badge {
+          background: rgba(242, 101, 34, 0.22);
+          color: #ffd5c1;
+        }
+        :global(html[data-theme="dark"]) .bday-row {
+          background: #1f4a8f;
+          border-color: rgba(188, 211, 248, 0.2);
+        }
+        :global(html[data-theme="dark"]) .bday-row:hover {
+          background: #28569f;
+          border-color: rgba(211, 226, 250, 0.34);
+        }
+        :global(html[data-theme="dark"]) .bday-name {
+          color: #ffffff;
+        }
+        :global(html[data-theme="dark"]) .bday-date {
+          color: #d6e6ff;
+        }
+        :global(html[data-theme="dark"]) .wish-btn {
+          background: #173f7f;
+          border: 1px solid rgba(188, 211, 248, 0.24);
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          *,
+          *::before,
+          *::after {
+            animation: none !important;
+            transition: none !important;
+          }
+
+          .panel-card {
+            opacity: 1;
+            transform: none;
+          }
+        }
+        .today-badge { font-size: 11px; font-weight: 700; color: var(--accent); background: var(--accent-light); padding: 3px 8px; border-radius: 999px; white-space: nowrap; flex-shrink: 0; display: inline-flex; align-items: center; gap: 3px; animation: badgePulse 3s ease-in-out infinite; }
+        @keyframes badgePulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+        .today-badge :global(.today-icon) { color: #F26522; }
 
         /* ======= CONFETTI ======= */
         .confetti-stage { position: fixed; inset: 0; pointer-events: none; z-index: 10000; overflow: hidden; }
@@ -300,11 +443,11 @@ export default function RightPanel() {
           width: 360px;
           max-width: calc(100vw - 32px);
           text-align: center;
-          box-shadow: 0 20px 60px rgba(124,58,237,0.25), var(--shadow-lg);
+          box-shadow: 0 20px 60px rgba(31,58,104,0.2), var(--shadow-lg);
           animation: modalUp 0.35s cubic-bezier(0.34,1.56,0.64,1);
           position: relative;
           overflow: hidden;
-          border: 1px solid rgba(124,58,237,0.15);
+          border: 1px solid rgba(31,58,104,0.16);
         }
         @keyframes modalUp { from { opacity: 0; transform: translateY(30px) scale(0.9); } to { opacity: 1; transform: translateY(0) scale(1); } }
 
@@ -327,12 +470,12 @@ export default function RightPanel() {
         .ribbon::before {
           top: 0; left: 0;
           border-width: 40px;
-          border-color: rgba(124,58,237,0.12) transparent transparent rgba(124,58,237,0.12);
+          border-color: rgba(242,101,34,0.18) transparent transparent rgba(242,101,34,0.18);
         }
         .ribbon::after {
           top: 2px; left: 2px;
           border-width: 38px;
-          border-color: rgba(168,85,247,0.08) transparent transparent rgba(168,85,247,0.08);
+          border-color: rgba(31,58,104,0.08) transparent transparent rgba(31,58,104,0.08);
         }
 
         .modal-icon-wrap {
@@ -357,8 +500,8 @@ export default function RightPanel() {
           inset: -8px;
           border-radius: 50%;
           border: 2px solid transparent;
-          border-top-color: rgba(168,85,247,0.5);
-          border-right-color: rgba(124,58,237,0.3);
+          border-top-color: rgba(242,101,34,0.5);
+          border-right-color: rgba(31,58,104,0.3);
           animation: iconSpin 3s linear infinite;
         }
         @keyframes iconSpin { to { transform: rotate(360deg); } }
@@ -376,20 +519,47 @@ export default function RightPanel() {
         .btn-cancel :global(.btn-icon) { color: var(--text-secondary); }
 
         .btn-send {
-          flex: 1; background: var(--gradient-primary); color: white; border: none;
+          flex: 1; background: #F26522; color: white; border: none;
           padding: 11px; border-radius: var(--radius-sm); cursor: pointer; font-weight: 700;
-          font-size: 13px; box-shadow: 0 4px 14px rgba(124,58,237,0.35); transition: all 0.25s ease;
+          font-size: 13px; box-shadow: 0 4px 14px rgba(31,58,104,0.3); transition: all 0.25s ease;
           position: relative; overflow: hidden;
           display: inline-flex; align-items: center; justify-content: center; gap: 5px;
         }
         .btn-send :global(.btn-icon) { color: white; }
         .btn-send::after {
           content: ""; position: absolute; top: 0; left: -100%; width: 60%; height: 100%;
-          background: linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.25) 50%, transparent 70%);
-          animation: btnShine 2s ease-in-out infinite;
+          background: transparent;
+          animation: none;
         }
         @keyframes btnShine { 0%,60% { left: -100%; } 100% { left: 150%; } }
-        .btn-send:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(124,58,237,0.45); }
+        .btn-send:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(242,101,34,0.35); }
+
+        /* ===== LIGHTBOX ===== */
+        .lightbox-overlay {
+          position: fixed; inset: 0; background: rgba(0,0,0,0.88);
+          backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+          display: flex; align-items: center; justify-content: center;
+          z-index: 10000; animation: fadeIn 0.2s ease; cursor: pointer;
+        }
+        .lightbox-img {
+          max-width: 90vw; max-height: 88vh; border-radius: 12px;
+          object-fit: contain; box-shadow: 0 24px 64px rgba(0,0,0,0.6);
+          animation: lightboxIn 0.3s cubic-bezier(0.34,1.56,0.64,1);
+          cursor: default;
+        }
+        @keyframes lightboxIn {
+          from { opacity: 0; transform: scale(0.85); }
+          to   { opacity: 1; transform: scale(1); }
+        }
+        .lightbox-close {
+          position: fixed; top: 20px; right: 24px;
+          width: 40px; height: 40px; border-radius: 50%;
+          background: rgba(255,255,255,0.15); backdrop-filter: blur(8px);
+          border: none; color: white; font-size: 26px; line-height: 1;
+          cursor: pointer; display: flex; align-items: center; justify-content: center;
+          transition: background 0.2s ease;
+        }
+        .lightbox-close:hover { background: rgba(255,255,255,0.28); }
 
         /* ===== MOBILE ===== */
         @media (max-width: 768px) {

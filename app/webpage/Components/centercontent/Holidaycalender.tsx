@@ -96,30 +96,30 @@ function HolCard({ h, status }: { h: Holiday; status: HolidayStatus }) {
 
         /* ── NEXT: glowing purple ── */
         .status-next {
-          background: linear-gradient(135deg, rgba(124,58,237,0.06) 0%, rgba(168,85,247,0.04) 100%);
-          border: 1px solid rgba(124,58,237,0.3);
-          box-shadow: 0 0 0 2px rgba(124,58,237,0.08), 0 4px 16px rgba(124,58,237,0.12);
-          animation: nextGlow 2.5s ease-in-out infinite;
+          background: rgba(242,101,34,0.08);
+          border: 1px solid rgba(242,101,34,0.32);
+          box-shadow: 0 0 0 2px rgba(242,101,34,0.08), 0 4px 16px rgba(31,58,104,0.12);
+          animation: none;
         }
         @keyframes nextGlow {
-          0%,100% { box-shadow: 0 0 0 2px rgba(124,58,237,0.08), 0 4px 16px rgba(124,58,237,0.12); }
-          50%      { box-shadow: 0 0 0 3px rgba(124,58,237,0.18), 0 6px 24px rgba(124,58,237,0.2); }
+          0%,100% { box-shadow: 0 0 0 2px rgba(242,101,34,0.08), 0 4px 16px rgba(31,58,104,0.12); }
+          50%      { box-shadow: 0 0 0 3px rgba(242,101,34,0.22), 0 6px 24px rgba(31,58,104,0.18); }
         }
         .status-next.hov {
           transform: translateY(-3px);
-          box-shadow: 0 8px 28px rgba(124,58,237,0.2);
+          box-shadow: 0 8px 28px rgba(31,58,104,0.2);
         }
 
         /* ── UPCOMING: standard clean card ── */
         .status-upcoming {
           background: var(--bg-card-solid);
-          border: 1px solid rgba(139,92,246,0.12);
-          box-shadow: 0 1px 4px rgba(139,92,246,0.07);
+          border: 1px solid rgba(71,85,105,0.16);
+          box-shadow: 0 1px 4px rgba(31,58,104,0.08);
         }
         .status-upcoming.hov {
-          border-color: rgba(124,58,237,0.25);
+          border-color: rgba(242,101,34,0.28);
           background: var(--bg-soft);
-          box-shadow: 0 6px 24px rgba(124,58,237,0.1);
+          box-shadow: 0 6px 24px rgba(31,58,104,0.1);
           transform: translateY(-2px);
         }
 
@@ -133,15 +133,15 @@ function HolCard({ h, status }: { h: Holiday; status: HolidayStatus }) {
         }
         /* past stripe: muted grey */
         .stripe-past {
-          background: linear-gradient(160deg, rgba(156,163,175,0.12), rgba(156,163,175,0.06));
+          background: rgba(156,163,175,0.1);
         }
         /* next & upcoming stripe: purple */
         .stripe-next,
         .stripe-upcoming {
-          background: linear-gradient(160deg, var(--accent-light), rgba(139,92,246,0.15));
+          background: var(--accent-light);
         }
         .date-stripe.hov {
-          background: linear-gradient(160deg, #7c3aed, #a78bfa) !important;
+          background: #F26522 !important;
         }
         .date-stripe.hov .day-num,
         .date-stripe.hov .month-label { color: #fff !important; opacity: 1 !important; }
@@ -171,7 +171,7 @@ function HolCard({ h, status }: { h: Holiday; status: HolidayStatus }) {
         .dot-badge { display: inline-block; width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
         .dot-past     { background: #d1d5db; }
         .dot-next,
-        .dot-upcoming { background: linear-gradient(135deg, #7c3aed, #a855f7); }
+        .dot-upcoming { background: #F26522; }
 
         .hol-day { font-size: 12px; color: var(--text-muted); }
 
@@ -180,11 +180,11 @@ function HolCard({ h, status }: { h: Holiday; status: HolidayStatus }) {
           display: inline-flex; align-items: center; gap: 4px;
           font-size: 11px; font-weight: 700;
           color: white;
-          background: var(--gradient-primary);
+          background: #F26522;
           padding: 4px 11px; border-radius: 8px;
           margin-right: 16px; flex-shrink: 0;
-          box-shadow: 0 2px 8px rgba(124,58,237,0.3);
-          animation: badgePop 2.5s ease-in-out infinite;
+          box-shadow: 0 2px 8px rgba(31,58,104,0.25);
+          animation: none;
         }
         @keyframes badgePop {
           0%,100% { transform: scale(1); }
@@ -256,7 +256,7 @@ export default function HolidayCalendar() {
         }
         .hol-header-orb {
           position: absolute; width: 200px; height: 200px; border-radius: 50%;
-          background: radial-gradient(circle, var(--accent-glow), transparent 70%);
+          background: rgba(242,101,34,0.08);
           top: -70px; right: -40px; pointer-events: none;
         }
         .hol-header-inner {
@@ -272,14 +272,14 @@ export default function HolidayCalendar() {
           padding: 3px 10px; border-radius: 999px;
         }
         .stat-past     { color: #9ca3af; background: rgba(156,163,175,0.12); border: 1px solid rgba(156,163,175,0.2); }
-        .stat-upcoming { color: var(--accent); background: var(--accent-light); border: 1px solid rgba(124,58,237,0.15); }
+        .stat-upcoming { color: var(--accent); background: var(--accent-light); border: 1px solid rgba(242,101,34,0.18); }
         .stat-sep      { color: var(--text-muted); font-size: 14px; }
 
         .hol-icon {
           width: 52px; height: 52px; border-radius: 14px;
-          background: var(--gradient-primary);
+          background: #F26522;
           display: flex; align-items: center; justify-content: center;
-          box-shadow: 0 4px 14px rgba(124,58,237,0.3);
+          box-shadow: 0 4px 14px rgba(31,58,104,0.24);
         }
         .hol-grid {
           display: grid;

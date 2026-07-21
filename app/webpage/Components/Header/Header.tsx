@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useTheme } from "../../../../app/context/ThemeContext";
 import { Sun, Moon, Menu, X } from "lucide-react";
@@ -17,6 +16,7 @@ export default function Header({
   mobileSidebarOpen,
 }: HeaderProps) {
   const [username, setUsername] = useState<string | null>(null);
+  const [introVisible, setIntroVisible] = useState(false);
   const { theme, toggleTheme } = useTheme();
 
   useEffect(() => {
@@ -34,6 +34,11 @@ export default function Header({
       }
     }
     fetchUser();
+  }, []);
+
+  useEffect(() => {
+    const id = window.requestAnimationFrame(() => setIntroVisible(true));
+    return () => window.cancelAnimationFrame(id);
   }, []);
 
   function handleLogout() {
@@ -73,20 +78,11 @@ export default function Header({
             {mobileSidebarOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
 
-          <div className="logo-glow">
-            <Image
-              src="/logo.png"
-              alt="Adroitent logo"
-              height={46}
-              width={74}
-              priority
-            />
-          </div>
         </div>
 
         {/* RIGHT */}
         <div className="header-right">
-          <div className="user-pill">
+          <div className={`user-pill ${introVisible ? "intro-in" : ""}`}>
             <div className="avatar">
               <span>{initials}</span>
               <div className="avatar-ring" />
@@ -116,7 +112,7 @@ export default function Header({
           display: flex;
           align-items: center;
           justify-content: space-between;
-          padding: 0 24px;
+          padding: 0 28px;
           position: sticky;
           top: 0;
           z-index: 100;
@@ -134,13 +130,7 @@ export default function Header({
         .bg-gradient {
           position: absolute;
           inset: 0;
-          background: linear-gradient(
-            135deg,
-            color-mix(in srgb, var(--bg-card-solid) 92%, transparent) 0%,
-            color-mix(in srgb, var(--accent-light) 50%, transparent) 35%,
-            color-mix(in srgb, var(--accent-light) 40%, transparent) 55%,
-            color-mix(in srgb, var(--bg-card-solid) 90%, transparent) 100%
-          );
+          background: var(--bg-card-solid);
           backdrop-filter: blur(24px);
           -webkit-backdrop-filter: blur(24px);
         }
@@ -155,28 +145,28 @@ export default function Header({
         .orb-1 {
           width: 180px;
           height: 180px;
-          background: radial-gradient(circle, #c4b5fd, transparent 70%);
+          background: transparent;
           top: -80px;
           left: 15%;
-          animation: headerOrb1 12s ease-in-out infinite;
+          animation: none;
         }
 
         .orb-2 {
           width: 140px;
           height: 140px;
-          background: radial-gradient(circle, #a78bfa, transparent 70%);
+          background: transparent;
           top: -50px;
           right: 25%;
-          animation: headerOrb2 16s ease-in-out infinite;
+          animation: none;
         }
 
         .orb-3 {
           width: 120px;
           height: 120px;
-          background: radial-gradient(circle, #818cf8, transparent 70%);
+          background: transparent;
           bottom: -60px;
           right: 10%;
-          animation: headerOrb3 20s ease-in-out infinite;
+          animation: none;
         }
 
         @keyframes headerOrb1 {
@@ -219,16 +209,8 @@ export default function Header({
         .bg-shimmer {
           position: absolute;
           inset: 0;
-          background: linear-gradient(
-            105deg,
-            transparent 30%,
-            rgba(124, 58, 237, 0.04) 45%,
-            rgba(168, 85, 247, 0.06) 50%,
-            rgba(124, 58, 237, 0.04) 55%,
-            transparent 70%
-          );
-          background-size: 300% 100%;
-          animation: shimmerSweep 8s ease-in-out infinite;
+          background: transparent;
+          animation: none;
         }
 
         @keyframes shimmerSweep {
@@ -244,15 +226,10 @@ export default function Header({
         .header-left {
           display: flex;
           align-items: center;
-          gap: 10px;
+          gap: 4px;
           position: relative;
           z-index: 1;
-        }
-
-        .logo-glow {
-          display: flex;
-          align-items: center;
-          position: relative;
+          min-width: 38px;
         }
 
         /* ---- HAMBURGER (hidden on desktop) ---- */
@@ -261,9 +238,9 @@ export default function Header({
           width: 38px;
           height: 38px;
           border-radius: 12px;
-          border: 1px solid rgba(124, 58, 237, 0.15);
-          background: var(--glass, rgba(255, 255, 255, 0.7));
-          color: var(--accent, #7c3aed);
+          border: 1px solid var(--border);
+          background: var(--bg-soft);
+          color: var(--text-primary);
           align-items: center;
           justify-content: center;
           cursor: pointer;
@@ -272,17 +249,17 @@ export default function Header({
           flex-shrink: 0;
         }
         .hamburger-btn:hover {
-          background: var(--accent, #7c3aed);
+          background: var(--ad-orange);
           color: white;
-          border-color: var(--accent, #7c3aed);
-          box-shadow: 0 4px 14px rgba(124, 58, 237, 0.3);
+          border-color: var(--ad-orange);
+          box-shadow: 0 4px 14px rgba(242, 101, 34, 0.3);
         }
 
         /* ---- RIGHT ---- */
         .header-right {
           display: flex;
           align-items: center;
-          gap: 12px;
+          gap: 14px;
           position: relative;
           z-index: 1;
         }
@@ -290,26 +267,46 @@ export default function Header({
         .user-pill {
           display: flex;
           align-items: center;
-          gap: 10px;
-          padding: 5px 16px 5px 5px;
+          gap: 11px;
+          padding: 6px 18px 6px 6px;
           border-radius: 999px;
-          background: var(--glass);
-          border: 1px solid rgba(124, 58, 237, 0.12);
+          background: var(--bg-soft);
+          border: 1px solid var(--border);
           backdrop-filter: blur(8px);
           transition: all 0.3s ease;
         }
 
+        .user-pill .uname {
+          opacity: 0;
+          transform: translateY(8px);
+        }
+
+        .user-pill.intro-in .uname {
+          animation: greetIn 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) 0.12s forwards;
+        }
+
+        @keyframes greetIn {
+          from {
+            opacity: 0;
+            transform: translateY(8px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
         .user-pill:hover {
-          background: rgba(255, 255, 255, 0.9);
-          border-color: rgba(124, 58, 237, 0.25);
-          box-shadow: 0 4px 16px rgba(124, 58, 237, 0.1);
+          background: var(--bg-soft-hover);
+          border-color: var(--border);
+          box-shadow: 0 4px 16px rgba(31, 58, 104, 0.12);
         }
 
         .avatar {
           width: 34px;
           height: 34px;
           border-radius: 50%;
-          background: var(--gradient-primary);
+          background: var(--accent);
           display: flex;
           align-items: center;
           justify-content: center;
@@ -329,8 +326,8 @@ export default function Header({
           position: absolute;
           inset: -3px;
           border-radius: 50%;
-          border: 2px solid rgba(168, 85, 247, 0.18);
-          box-shadow: 0 0 0 0 rgba(168, 85, 247, 0.2);
+          border: 2px solid rgba(242, 101, 34, 0.18);
+          box-shadow: 0 0 0 0 rgba(242, 101, 34, 0.22);
           animation: avatarPulse 2.8s ease-in-out infinite;
         }
 
@@ -339,12 +336,12 @@ export default function Header({
           100% {
             transform: scale(1);
             opacity: 1;
-            box-shadow: 0 0 0 0 rgba(168, 85, 247, 0.2);
+            box-shadow: 0 0 0 0 rgba(242, 101, 34, 0.2);
           }
           50% {
             transform: scale(1.05);
             opacity: 0.85;
-            box-shadow: 0 0 0 6px rgba(168, 85, 247, 0);
+            box-shadow: 0 0 0 6px rgba(242, 101, 34, 0);
           }
         }
 
@@ -363,7 +360,7 @@ export default function Header({
           display: flex;
           align-items: center;
           gap: 8px;
-          background: var(--gradient-primary);
+          background: #f26522;
           border: none;
           padding: 9px 20px;
           border-radius: 12px;
@@ -371,8 +368,8 @@ export default function Header({
           font-weight: 600;
           cursor: pointer;
           color: white;
-          transition: all 0.3s ease;
-          box-shadow: 0 4px 14px rgba(124, 58, 237, 0.3);
+          transition: transform 220ms ease, box-shadow 220ms ease, filter 220ms ease;
+          box-shadow: 0 4px 14px rgba(31, 58, 104, 0.24);
           position: relative;
           overflow: hidden;
         }
@@ -385,13 +382,8 @@ export default function Header({
           left: -100%;
           width: 60%;
           height: 100%;
-          background: linear-gradient(
-            105deg,
-            transparent 30%,
-            rgba(255, 255, 255, 0.2) 50%,
-            transparent 70%
-          );
-          animation: btnShine 4s ease-in-out infinite;
+          background: transparent;
+          animation: none;
         }
 
         @keyframes btnShine {
@@ -406,7 +398,7 @@ export default function Header({
 
         .logout-btn:hover {
           transform: translateY(-1px);
-          box-shadow: 0 6px 20px rgba(124, 58, 237, 0.4);
+          box-shadow: 0 6px 20px rgba(242, 101, 34, 0.35);
         }
 
         .logout-btn:active {
@@ -417,9 +409,9 @@ export default function Header({
           width: 36px;
           height: 36px;
           border-radius: 12px;
-          border: 1px solid rgba(124, 58, 237, 0.15);
-          background: rgba(255, 255, 255, 0.7);
-          color: var(--accent);
+          border: 1px solid var(--border);
+          background: var(--bg-soft);
+          color: var(--text-primary);
           display: flex;
           align-items: center;
           justify-content: center;
@@ -428,11 +420,47 @@ export default function Header({
           backdrop-filter: blur(8px);
         }
         .theme-toggle:hover {
-          background: var(--accent);
+          background: var(--ad-orange);
           color: white;
-          border-color: var(--accent);
-          transform: rotate(20deg) scale(1.1);
-          box-shadow: 0 4px 14px rgba(124, 58, 237, 0.35);
+          border-color: var(--ad-orange);
+          transform: scale(1.05);
+          box-shadow: 0 4px 14px rgba(242, 101, 34, 0.35);
+        }
+
+        :global(html[data-theme="dark"]) .bg-gradient {
+          background: linear-gradient(180deg, #123a78 0%, #0d2f66 100%);
+        }
+        :global(html[data-theme="dark"]) .user-pill {
+          background: #1a4689;
+          border-color: rgba(188, 211, 248, 0.3);
+          box-shadow: 0 4px 16px rgba(7, 20, 49, 0.28);
+        }
+        :global(html[data-theme="dark"]) .uname {
+          color: #f8fbff;
+        }
+        :global(html[data-theme="dark"]) .theme-toggle {
+          background: #1a4689;
+          border-color: rgba(188, 211, 248, 0.3);
+          color: #f8fbff;
+        }
+        :global(html[data-theme="dark"]) .hamburger-btn {
+          background: #1a4689;
+          border-color: rgba(188, 211, 248, 0.3);
+          color: #f8fbff;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          *,
+          *::before,
+          *::after {
+            animation: none !important;
+            transition: none !important;
+          }
+
+          .user-pill .uname {
+            opacity: 1;
+            transform: none;
+          }
         }
 
         /* ===== MOBILE RESPONSIVE ===== */
@@ -445,12 +473,6 @@ export default function Header({
           /* Show hamburger */
           .hamburger-btn {
             display: flex;
-          }
-
-          /* Shrink logo */
-          .logo-glow :global(img) {
-            height: 34px !important;
-            width: 56px !important;
           }
 
           /* Header right: tighter gap */

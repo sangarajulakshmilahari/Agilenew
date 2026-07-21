@@ -14,19 +14,19 @@ import {
 const pageConfig: Record<string, any> = {
   Events: {
     icon: faCalendar,
-    accent: "linear-gradient(135deg, #60a5fa, #a855f7)",
+    accent: "linear-gradient(135deg, #1F3A68, #F26522)",
     description:
       "Company events, team activities, and important dates will appear here.",
   },
   "Learning & Dev": {
     icon: faGraduationCap,
-    accent: "linear-gradient(135deg, #fb923c, #f59e0b)",
+    accent: "linear-gradient(135deg, #F26522, #1F3A68)",
     description:
       "Courses, certifications, and learning resources are on their way.",
   },
   "Featured Articles": {
     icon: faNewspaper,
-    accent: "linear-gradient(135deg, #34d399, #06b6d4)",
+    accent: "linear-gradient(135deg, #1F3A68, #475569)",
     description:
       "Curated articles, company news, and insights will be published here.",
   },
@@ -35,7 +35,7 @@ const pageConfig: Record<string, any> = {
 export default function ComingSoon({ page }: ComingSoonProps) {
   const cfg = pageConfig[page] ?? {
     icon: "🚀",
-    accent: "linear-gradient(135deg, #7c3aed, #a855f7)",
+    accent: "linear-gradient(135deg, #1F3A68, #F26522)",
     description:
       "This section is under development and will be available soon.",
   };
@@ -146,7 +146,7 @@ export default function ComingSoon({ page }: ComingSoonProps) {
           display: flex;
           align-items: center;
           justify-content: center;
-          box-shadow: 0 8px 28px rgba(124, 58, 237, 0.25);
+          box-shadow: 0 8px 28px rgba(31, 58, 104, 0.2);
           animation: iconBob 4s ease-in-out infinite;
         }
         @keyframes iconBob {
@@ -172,14 +172,14 @@ export default function ComingSoon({ page }: ComingSoonProps) {
         }
         .cs-ring-1 {
           inset: -10px;
-          border-top-color: rgba(124, 58, 237, 0.35);
-          border-right-color: rgba(99, 102, 241, 0.15);
+          border-top-color: rgba(242, 101, 34, 0.42);
+          border-right-color: rgba(31, 58, 104, 0.2);
           animation-duration: 6s;
         }
         .cs-ring-2 {
           inset: -20px;
-          border-bottom-color: rgba(168, 85, 247, 0.2);
-          border-left-color: rgba(124, 58, 237, 0.1);
+          border-bottom-color: rgba(242, 101, 34, 0.24);
+          border-left-color: rgba(31, 58, 104, 0.16);
           animation-duration: 10s;
           animation-direction: reverse;
         }
@@ -193,7 +193,7 @@ export default function ComingSoon({ page }: ComingSoonProps) {
         .cs-badge {
           display: inline-block;
           background: var(--accent-light);
-          border: 1px solid rgba(124, 58, 237, 0.2);
+          border: 1px solid rgba(242, 101, 34, 0.28);
           color: var(--accent);
           font-size: 12px;
           font-weight: 700;
