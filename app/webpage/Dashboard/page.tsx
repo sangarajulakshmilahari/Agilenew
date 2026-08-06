@@ -173,7 +173,7 @@ type DashboardView =
 export default function Dashboard() {
   const [mounted, setMounted] = useState(false);
   const [activeView, setActiveView] = useState<DashboardView>("home");
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   useEffect(() => {
@@ -225,6 +225,7 @@ export default function Dashboard() {
               activeView={activeView}
               onChange={handleViewChange}
               open={sidebarOpen}
+              mobileOpen={mobileSidebarOpen}
               setOpen={setSidebarOpen}
             />
           </div>
@@ -512,6 +513,16 @@ export default function Dashboard() {
 
         /* ===== MOBILE RESPONSIVE ===== */
         @media (max-width: 768px) {
+          .dashboard-page {
+            min-height: 100dvh;
+            height: 100dvh;
+          }
+
+          .dashboard-header {
+            height: 58px;
+            flex: 0 0 58px;
+          }
+
           /* Overlay backdrop */
           .mobile-sidebar-overlay {
             display: block;
@@ -539,11 +550,18 @@ export default function Dashboard() {
             gap: 0;
             padding: 8px;
             margin-left: 0;
+            width: 100%;
+            max-width: 100%;
+            height: calc(100dvh - 58px);
+            min-height: calc(100dvh - 58px);
+            flex: 0 0 calc(100dvh - 58px);
+            overflow: hidden;
           }
 
           .dashboard-page.sidebar-open .dashboard-header,
           .dashboard-page.sidebar-closed .dashboard-header {
             margin-left: 0;
+            width: 100%;
           }
 
           /* Hide sidebar from flow, show as overlay when mobile-open */
@@ -573,12 +591,22 @@ export default function Dashboard() {
 
           /* Center content takes full width */
           .center-scroll-wrapper {
-            overflow-y: auto;
-            overflow-x: hidden;
+            width: 100%;
+            min-width: 0;
+            height: 100%;
+            max-height: 100%;
+            overflow: hidden;
           }
           .center-column {
+            width: 100%;
+            min-width: 0;
+            height: 100%;
+            max-height: 100%;
             padding-right: 0;
+            padding-bottom: calc(16px + env(safe-area-inset-bottom));
             gap: 14px;
+            overflow-y: auto;
+            overflow-x: hidden;
           }
 
           /* Right panel stacks below center content */

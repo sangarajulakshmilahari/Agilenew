@@ -88,7 +88,7 @@ const apps: AppItem[] = [
     hoverDescription: "Adroitent Associate Portal for Talent Referral",
     icon: "/icons/code_gen_icon.svg",
     bg: "#1F3A68",
-    url: "http://referrals.adroitent.ai:8092/referral/index",
+    url: "https://aapta.adroitent.ai/",
   },
   {
     name: "TALENTALIGN",
@@ -891,8 +891,8 @@ export default function CenterContent({ activeView }: CenterContentProps) {
         /* ===== MOBILE ===== */
         @media (max-width: 560px) {
           .center-wrapper { gap: 12px; }
-          .hero-slider { height: auto; min-height: 180px; padding: 16px 20px; }
-          .slide { position: relative; padding: 16px 8px; opacity: 0; display: none; }
+          .hero-slider { height: auto; min-height: 180px; padding: 16px 18px 34px; }
+          .slide { position: relative; padding: 14px 4px; opacity: 0; display: none; }
           .slide.active { display: block; opacity: 1; }
           .slide p { font-size: 13px; line-height: 1.6; }
           .slide-badge { font-size: 12px; padding: 3px 10px; }
@@ -907,12 +907,30 @@ export default function CenterContent({ activeView }: CenterContentProps) {
           .apps-section {
             padding: 14px;
           }
+          .section-header {
+            align-items: flex-start;
+            gap: 10px;
+          }
+          .section-title-row {
+            min-width: 0;
+            flex: 1;
+          }
+          .section-sub {
+            max-width: 190px;
+            line-height: 1.35;
+          }
+          .app-count {
+            flex-shrink: 0;
+            padding: 4px 8px;
+            white-space: nowrap;
+          }
           .app-grid {
             grid-template-columns: 1fr;
             gap: 8px;
           }
           .app-card {
             padding: 12px 14px;
+            min-width: 0;
           }
           /* Show arrow always on mobile (no hover) */
           .app-arrow {
@@ -922,6 +940,14 @@ export default function CenterContent({ activeView }: CenterContentProps) {
 
           .section-title {
             font-size: 15px;
+          }
+          .app-info h4,
+          .app-info p {
+            white-space: normal;
+            overflow-wrap: anywhere;
+          }
+          .app-info p {
+            line-height: 1.35;
           }
         }
       `}</style>

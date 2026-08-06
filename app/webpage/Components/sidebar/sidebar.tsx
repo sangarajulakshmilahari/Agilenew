@@ -25,6 +25,7 @@ type SidebarProps = {
     view: "home" | "holiday" | "events" | "learning" | "articles" | "corner",
   ) => void;
   open: boolean;
+  mobileOpen?: boolean;
   setOpen: React.Dispatch<React.SetStateAction<boolean>>;
 };
 
@@ -34,8 +35,10 @@ export default function Sidebar({
   activeView,
   onChange,
   open,
+  mobileOpen = false,
   setOpen,
 }: SidebarProps) {
+  const expanded = open || mobileOpen;
   const menuItems = [
     {
       key: "home" as const,
@@ -77,7 +80,7 @@ export default function Sidebar({
 
   return (
     <>
-      <aside className={`sidebar ${open ? "expanded" : "collapsed"}`}>
+      <aside className={`sidebar ${expanded ? "expanded" : "collapsed"} ${mobileOpen ? "mobile-open" : ""}`}>
         <div className="sidebar-bg">
           <div className="sb-gradient" />
           <div className="sb-orb sb-orb-1" />
@@ -88,12 +91,12 @@ export default function Sidebar({
           <div className="sb-shimmer" />
         </div>
 
-        <div className={`sidebar-brand ${open ? "" : "brand-collapsed"}`}>
+        <div className={`sidebar-brand ${expanded ? "" : "brand-collapsed"}`}>
           <Image
-            src={open ? "/image.png" : "/logoshort.png"}
+            src={expanded ? "/image.png" : "/logoshort.png"}
             alt="Adroitent logo"
-            width={open ? 316 : 64}
-            height={open ? 30 : 64}
+            width={expanded ? 316 : 64}
+            height={expanded ? 30 : 64}
             priority
             className="brand-logo"
           />
@@ -117,7 +120,7 @@ export default function Sidebar({
                   key={i}
                   className={isActive ? "active" : ""}
                   onClick={item.onClick}
-                  title={!open ? item.label : undefined}
+                  title={!expanded ? item.label : undefined}
                   style={{ animationDelay: `${i * 0.06}s` }}
                 >
                   <div className={`icon-box ${isActive ? "icon-active" : ""}`}>
@@ -126,7 +129,7 @@ export default function Sidebar({
                   </div>
                   {/* On mobile, always show labels (sidebar is always expanded in overlay) */}
                   <span
-                    className={`label-text ${open ? "" : "desktop-hidden"}`}
+                    className={`label-text ${expanded ? "" : "desktop-hidden"}`}
                   >
                     {item.label}
                   </span>
@@ -139,7 +142,7 @@ export default function Sidebar({
 
         {/* Footer */}
         <div className="sidebar-footer">
-          {open ? (
+          {expanded ? (
             <>
               {/* LinkedIn row */}
               <a
