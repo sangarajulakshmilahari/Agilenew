@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 
 import Sidebar from "../Components/sidebar/sidebar";
 import Centercontent from "../Components/centercontent/centercontent";
@@ -58,117 +58,15 @@ function DashboardLoader() {
   );
 }
 
-function ParticleNetwork({
-  color = "31, 58, 104",
-  darkColor = "248, 244, 239",
-  count = 72,
-  maxDist = 150,
-}: {
-  color?: string;
-  darkColor?: string;
-  count?: number;
-  maxDist?: number;
-}) {
-  const ref = useRef<HTMLCanvasElement>(null);
-
-  useEffect(() => {
-    const canvas = ref.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    let raf: number;
-    type Pt = { x: number; y: number; vx: number; vy: number; r: number };
-    let pts: Pt[] = [];
-
-    const resize = () => {
-      canvas.width = canvas.offsetWidth;
-      canvas.height = canvas.offsetHeight;
-    };
-
-    const init = () => {
-      resize();
-      pts = Array.from({ length: count }, () => ({
-        x: Math.random() * canvas.width,
-        y: Math.random() * canvas.height,
-        vx: (Math.random() - 0.5) * 0.24,
-        vy: (Math.random() - 0.5) * 0.24,
-        r: Math.random() * 1.2 + 0.5,
-      }));
-    };
-
-    const prefersReduced =
-      typeof window !== "undefined" &&
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-    const tick = () => {
-      if (prefersReduced) return;
-      const w = canvas.width;
-      const h = canvas.height;
-      ctx.clearRect(0, 0, w, h);
-
-      const isDark = document.documentElement.getAttribute("data-theme") === "dark";
-      const c = isDark ? darkColor : color;
-
-      for (const p of pts) {
-        p.x += p.vx;
-        p.y += p.vy;
-        if (p.x < 0 || p.x > w) p.vx *= -1;
-        if (p.y < 0 || p.y > h) p.vy *= -1;
-      }
-
-      for (let i = 0; i < pts.length; i++) {
-        for (let j = i + 1; j < pts.length; j++) {
-          const dx = pts[i].x - pts[j].x;
-          const dy = pts[i].y - pts[j].y;
-          const d = Math.sqrt(dx * dx + dy * dy);
-          if (d < maxDist) {
-            ctx.beginPath();
-            ctx.moveTo(pts[i].x, pts[i].y);
-            ctx.lineTo(pts[j].x, pts[j].y);
-            ctx.strokeStyle = `rgba(${c}, ${(1 - d / maxDist) * 0.028})`;
-            ctx.lineWidth = 0.5;
-            ctx.stroke();
-          }
-        }
-      }
-
-      for (const p of pts) {
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(${c}, 0.055)`;
-        ctx.fill();
-      }
-
-      raf = requestAnimationFrame(tick);
-    };
-
-    init();
-    if (!prefersReduced) {
-      tick();
-    } else {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-    }
-
-    const ro = new ResizeObserver(() => init());
-    ro.observe(canvas);
-
-    return () => {
-      cancelAnimationFrame(raf);
-      ro.disconnect();
-    };
-  }, [count, color, darkColor, maxDist]);
-
-  return <canvas ref={ref} className="bg-network" />;
-}
-
 type DashboardView =
   | "home"
   | "holiday"
   | "events"
   | "learning"
   | "articles"
-  | "corner";
+  | "corner"
+  | "portal"
+  | "articleManage";
 
 export default function Dashboard() {
   const [mounted, setMounted] = useState(false);
@@ -191,15 +89,6 @@ export default function Dashboard() {
   return (
     <>
       <div className={`dashboard-page ${sidebarOpen ? "sidebar-open" : "sidebar-closed"}`}>
-        {/* Animated background */}
-        <div className="bg-layer">
-          <div className="bg-blob blob-1" />
-          <div className="bg-blob blob-2" />
-          <div className="bg-blob blob-3" />
-          <ParticleNetwork />
-          <div className="bg-shimmer" />
-        </div>
-
         <div className="dashboard-header">
           <Header
             onHamburgerClick={() => setMobileSidebarOpen(!mobileSidebarOpen)}
@@ -280,89 +169,6 @@ export default function Dashboard() {
         .dashboard-page.sidebar-closed .dashboard-header {
           margin-left: var(--sidebar-w-closed);
           width: calc(100% - var(--sidebar-w-closed));
-        }
-
-        /* ===== ANIMATED BACKGROUND ===== */
-        .bg-layer {
-          position: fixed;
-          inset: 0;
-          z-index: 0;
-          pointer-events: none;
-          overflow: hidden;
-        }
-
-        .bg-network {
-          position: absolute;
-          inset: 0;
-          width: 100%;
-          height: 100%;
-          opacity: 0.35;
-          mask-image: radial-gradient(ellipse at 52% 8%, rgba(0, 0, 0, 0.85) 42%, transparent 92%);
-          -webkit-mask-image: radial-gradient(ellipse at 52% 8%, rgba(0, 0, 0, 0.85) 42%, transparent 92%);
-        }
-
-        .bg-shimmer {
-          position: absolute;
-          top: -50%;
-          left: -50%;
-          width: 200%;
-          height: 200%;
-          background: transparent;
-          animation: none;
-        }
-
-        @keyframes shimmerRotate {
-          to {
-            transform: rotate(360deg);
-          }
-        }
-
-        .bg-blob {
-          position: absolute;
-          border-radius: 50%;
-          display: block;
-        }
-
-        .blob-1 {
-          width: 520px;
-          height: 520px;
-          background: radial-gradient(circle, rgba(242, 101, 34, 0.03), transparent 70%);
-          top: -140px;
-          right: -100px;
-          animation: blobA 22s ease-in-out infinite;
-        }
-        .blob-2 {
-          width: 420px;
-          height: 420px;
-          background: radial-gradient(circle, rgba(31, 58, 104, 0.024), transparent 70%);
-          bottom: -100px;
-          left: -80px;
-          animation: blobA 28s ease-in-out infinite reverse;
-        }
-        .blob-3 {
-          width: 320px;
-          height: 320px;
-          background: radial-gradient(circle, rgba(242, 101, 34, 0.02), transparent 70%);
-          top: 45%;
-          left: 38%;
-          animation: blobA 34s ease-in-out infinite 4s;
-        }
-
-
-        @keyframes blobA {
-          0%,
-          100% {
-            transform: translate(0, 0) scale(1);
-          }
-          25% {
-            transform: translate(40px, -30px) scale(1.06);
-          }
-          50% {
-            transform: translate(-20px, 30px) scale(0.94);
-          }
-          75% {
-            transform: translate(30px, 10px) scale(1.03);
-          }
         }
 
         /* ===== HEADER ===== */
