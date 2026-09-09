@@ -3,6 +3,9 @@ import { useEffect, useRef, useState } from "react";
 import Holidaycalender from "../centercontent/Holidaycalender";
 import ComingSoon from "./comingsoon";
 import EmployeeCorner from "./EmployeeCorner";
+import PortalContent from "./PortalContent";
+import FeaturedArticles from "./FeaturedArticles";
+import ArticleManagement from "./ArticleManagement";
 
 type AppItem = {
   name: string;
@@ -20,7 +23,9 @@ type CenterContentProps = {
     | "events"
     | "learning"
     | "articles"
-    | "corner";
+    | "corner"
+    | "portal"
+    | "articleManage";
 };
 const apps: AppItem[] = [
   {
@@ -108,21 +113,27 @@ const apps: AppItem[] = [
   },
 ];
 
-const coreValues = [
-  "Treat others the way you want to be treated",
-  "Be Productive and Be Useful",
-  "Make a Difference",
-  "Be Resourceful and Enterprising",
-  "Think Outside the Box",
-  "Deliver Value, Always",
-  "Ever Forward",
-  "Profit is a Strategic Necessity",
-  "Customer Partnerships First",
-];
+type PortalContentItem = {
+  contentId: number;
+  contentKey: string;
+  title: string;
+  content: string;
+};
+
+type PortalValue = {
+  valueId: number;
+  valueText: string;
+  displayOrder: number;
+};
 
 export default function CenterContent({ activeView }: CenterContentProps) {
   const [allowedApps, setAllowedApps] = useState<string[]>([]);
-  const slides = ["mission", "vision", "values1", "values2"] as const;
+  const [mission, setMission] = useState<PortalContentItem | null>(null);
+  const [vision, setVision] = useState<PortalContentItem | null>(null);
+  const [portalValues, setPortalValues] = useState<PortalValue[]>([]);
+  const [portalContentLoading, setPortalContentLoading] = useState(true);
+  const [portalContentError, setPortalContentError] = useState("");
+  const slides = ["mission", "vision"] as const;
   type SlideType = (typeof slides)[number];
   const [activeSlide, setActiveSlide] = useState<SlideType>("mission");
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -164,84 +175,83 @@ export default function CenterContent({ activeView }: CenterContentProps) {
     })();
   }, []);
 
+  useEffect(() => {
+    (async () => {
+      try {
+        setPortalContentLoading(true);
+        setPortalContentError("");
+        const r = await fetch("/api/portal-content", { cache: "no-store" });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) {
+          throw new Error(d?.error || "Unable to load portal content.");
+        }
+        setMission(d?.mission ?? null);
+        setVision(d?.vision ?? null);
+        setPortalValues(Array.isArray(d?.values) ? d.values : []);
+      } catch {
+        setPortalContentError("Unable to load mission, vision, and values.");
+      } finally {
+        setPortalContentLoading(false);
+      }
+    })();
+  }, []);
+
   if (activeView === "holiday") return <Holidaycalender />;
   if (activeView === "events") return <ComingSoon page="Events" />;
   if (activeView === "learning") return <ComingSoon page="Learning & Dev" />;
-  if (activeView === "articles") return <ComingSoon page="Featured Articles" />;
+  if (activeView === "articles") return <FeaturedArticles />;
   if (activeView === "corner") return <EmployeeCorner />;
+  if (activeView === "portal") return <PortalContent />;
+  if (activeView === "articleManage") return <ArticleManagement />;
+
+  const openAppByName = (name: string) => {
+    const target = apps.find((a) => a.name === name);
+    if (target?.url) window.open(target.url, "_blank");
+  };
 
   return (
     <div className="center-wrapper">
-      {/* ======== HERO SLIDER ======== */}
-      <div className="hero-card glass-card">
-        <div
-          className="hero-slider"
-          onMouseEnter={stopAuto}
-          onMouseLeave={startAuto}
-        >
-          {/* <div className="hero-curve" />
-          <div className="hero-circle hero-circle-1" />
-          <div className="hero-circle hero-circle-2" />
-          <div className="hero-mesh" />
-          <div className="hero-particles" /> */}
-
-          <button className="nav-arrow left" onClick={goPrev}>‹</button>
-          <button className="nav-arrow right" onClick={goNext}>›</button>
-
-          <div className={`slide ${activeSlide === "mission" ? "active" : ""}`}>
-            <div className="slide-badge">Our Mission</div>
-            <p>
-              To become the <strong className="hl">most sought-after</strong>{" "}
-              Technology Partner for Enterprise AI Solutions in the market.
-            </p>
-          </div>
-
-          <div className={`slide ${activeSlide === "vision" ? "active" : ""}`}>
-            <div className="slide-badge">Our Vision</div>
-            <p>
-              We aspire to be the <strong className="hl">indispensable</strong>{" "}
-              Partner that enterprises turn to for AI-driven transformation –
-              delivering enduring value and growth.
-            </p>
-          </div>
-
-          <div className={`slide ${activeSlide === "values1" ? "active" : ""}`}>
-            <div className="slide-badge">
-              Core Values <span className="badge-page">1 / 2</span>
-            </div>
-            <div className="values-grid">
-              {coreValues.slice(0, 5).map((v, i) => (
-                <div key={v} className="value-chip">
-                  <span className="vn">{i + 1}</span>
-                  <span> {v}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className={`slide ${activeSlide === "values2" ? "active" : ""}`}>
-            <div className="slide-badge">
-              Core Values <span className="badge-page">2 / 2</span>
-            </div>
-            <div className="values-grid">
-              {coreValues.slice(5).map((v, i) => (
-                <div key={v} className="value-chip">
-                  <span className="vn">{i + 6}</span>
-                  <span> {v}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="slide-indicators">
-            {slides.map((s) => (
-              <button
-                key={s}
-                className={`ind ${activeSlide === s ? "active" : ""}`}
-                onClick={() => setActiveSlide(s)}
-              />
-            ))}
-          </div>
+      {/* ======== QUICK CONSOLE (AI band — the one place cyan appears) ======== */}
+      <div className="ai-band">
+        <div className="ai-top">
+          {/* <span className="ai-tag">
+            <span className="dot" />
+            Quick console
+          </span> */}
+        </div>
+        <p className="ai-brief">
+          Jump straight into what you need — apply for leave, raise a
+          ticket, or open any of your <strong>{allowedApps.length}</strong>{" "}
+          applications below.
+        </p>
+        <div className="omni">
+          <svg
+            className="ic"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
+            <circle cx="11" cy="11" r="7" />
+            <path d="M20 20l-4-4" />
+          </svg>
+          <span>Search applications, policies, or people</span>
+        </div>
+        <div className="chips">
+          <button
+            className="chip"
+            onClick={() =>
+              window.open("https://aaram.adroitent.ai/apply_leave", "_blank")
+            }
+          >
+            Apply for leave
+          </button>
+          <button className="chip" onClick={() => openAppByName("AHDAR")}>
+            Raise a ticket
+          </button>
+          <button className="chip" onClick={() => openAppByName("AAPTA")}>
+            Refer a candidate
+          </button>
         </div>
       </div>
 
@@ -295,6 +305,61 @@ export default function CenterContent({ activeView }: CenterContentProps) {
 
       </div>
 
+      {/* ======== PURPOSE / MISSION / VISION ROTATOR ======== */}
+      <div
+        className="purpose-card"
+        onMouseEnter={stopAuto}
+        onMouseLeave={startAuto}
+      >
+        <div className={`p-slide ${activeSlide === "mission" ? "active" : ""}`}>
+          <span className="p-lab">{mission?.title || ""}</span>
+          <p>
+            {portalContentLoading ? "" : mission?.content || portalContentError}
+          </p>
+        </div>
+        <div className={`p-slide ${activeSlide === "vision" ? "active" : ""}`}>
+          <span className="p-lab">{vision?.title || ""}</span>
+          <p>
+            {portalContentLoading ? "" : vision?.content || portalContentError}
+          </p>
+        </div>
+        <div className="p-foot">
+          <div className="p-dots">
+            {slides.map((s) => (
+              <button
+                key={s}
+                className={`p-dot ${activeSlide === s ? "active" : ""}`}
+                onClick={() => setActiveSlide(s)}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* ======== OUR VALUES ======== */}
+      <div className="values-section">
+        <div className="section-header">
+          <div className="section-title-row">
+            <div className="section-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 21s-7-4.5-9.5-9A5.5 5.5 0 0112 5a5.5 5.5 0 019.5 7c-2.5 4.5-9.5 9-9.5 9z"/>
+              </svg>
+            </div>
+            <div>
+              <p className="section-title">Our values &amp; beliefs</p>
+              <p className="section-sub">What we hold ourselves to, every day</p>
+            </div>
+          </div>
+        </div>
+        <div className="values-grid-static">
+          {portalValues.map((value) => (
+            <div key={value.valueId} className="value-card">
+              <span className="value-num">{String(value.displayOrder).padStart(2, "0")}</span>
+              <span className="value-text">{value.valueText}</span>
+            </div>
+          ))}
+        </div>
+      </div>
 
       <style jsx>{`
         .center-wrapper {
@@ -315,132 +380,205 @@ export default function CenterContent({ activeView }: CenterContentProps) {
           }
         }
 
-        /* ======== HERO ======== */
-        .hero-card {
-          padding: 0;
-          overflow: hidden;
+        /* ======== QUICK CONSOLE (AI band) ======== */
+        .ai-band {
           border-radius: 16px;
-          border: 1px solid rgba(18, 58, 120, 0.1);
-          background: #ffffff;
-          box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
-          transform: translate3d(0, 8px, 0);
-          opacity: 0;
-          animation: cardEnter 0.45s ease forwards;
-          animation-delay: 0ms;
-          transition: transform 220ms ease, box-shadow 220ms ease;
-        }
-        .hero-card:hover {
-          transform: translate3d(0, -4px, 0);
-          box-shadow: 0 18px 34px rgba(15, 23, 42, 0.12);
-        }
-        .hero-slider {
+          padding: 24px 28px;
+          background: linear-gradient(155deg, var(--ad-navy) 0%, var(--ad-ai-navy) 100%);
+          color: #ffffff;
           position: relative;
-          height: 210px;
           overflow: hidden;
+        }
+        .ai-band::after {
+          content: "";
+          position: absolute;
+          top: -70px;
+          right: -70px;
+          width: 240px;
+          height: 240px;
+          border-radius: 50%;
+          background: radial-gradient(circle, rgba(6, 182, 212, 0.18), transparent 70%);
+          pointer-events: none;
+        }
+        .ai-top {
+          position: relative;
+          z-index: 1;
+          margin-bottom: 10px;
+        }
+        .ai-tag {
+          display: inline-flex;
+          align-items: center;
+          gap: 7px;
+          font-family: "JetBrains Mono", monospace;
+          font-size: 11px;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          color: var(--ad-ai-cyan);
+        }
+        .ai-tag .dot {
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          background: var(--ad-ai-cyan);
+          box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.25);
+        }
+        .ai-brief {
+          position: relative;
+          z-index: 1;
+          font-size: 16px;
+          line-height: 1.6;
+          max-width: 640px;
+          margin: 0;
+        }
+        .ai-brief strong {
+          color: var(--ad-ai-cyan);
+          font-weight: 700;
+        }
+        .omni {
+          position: relative;
+          z-index: 1;
+          margin-top: 18px;
+          background: rgba(255, 255, 255, 0.07);
+          border: 1px solid rgba(255, 255, 255, 0.14);
+          border-radius: 10px;
+          padding: 12px 15px;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          font-size: 13.5px;
+          color: rgba(255, 255, 255, 0.55);
+          cursor: text;
+        }
+        .omni .ic {
+          width: 15px;
+          height: 15px;
+          flex-shrink: 0;
+          color: var(--ad-ai-cyan);
+        }
+        .chips {
+          position: relative;
+          z-index: 1;
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+          margin-top: 12px;
+        }
+        .chip {
+          font-family: inherit;
+          font-size: 12.5px;
+          font-weight: 500;
+          padding: 7px 13px;
+          border-radius: 20px;
+          background: rgba(255, 255, 255, 0.08);
+          border: 1px solid rgba(255, 255, 255, 0.14);
+          color: rgba(255, 255, 255, 0.9);
+          cursor: pointer;
+          transition: background 150ms ease;
+        }
+        .chip:hover {
+          background: rgba(255, 255, 255, 0.16);
+        }
+
+        /* ======== PURPOSE / MISSION / VISION ROTATOR ======== */
+        .purpose-card {
+          position: relative;
           background: #ffffff;
-          padding: 28px 60px;
+          border: 1px solid var(--border);
+          border-radius: 16px;
+          padding: 22px 26px;
+          min-height: 96px;
         }
-
-        .hero-curve {
-          position: absolute;
-          inset: 0;
-          pointer-events: none;
-          z-index: 0;
-          opacity: 0.05;
-          background:
-            radial-gradient(120% 80% at 86% 18%, rgba(18, 58, 120, 0.22) 0%, transparent 58%),
-            radial-gradient(90% 60% at 76% 72%, rgba(18, 58, 120, 0.12) 0%, transparent 62%);
+        .p-slide {
+          display: none;
         }
-
-        .hero-circle {
-          position: absolute;
-          border-radius: 999px;
-          border: 1px solid rgba(18, 58, 120, 0.2);
-          background: rgba(18, 58, 120, 0.05);
-          pointer-events: none;
-          z-index: 0;
-          opacity: 0.05;
-          transform: translate3d(0, 0, 0);
-          animation: heroFloat 20s ease-in-out infinite;
+        .p-slide.active {
+          display: block;
+          animation: pFade 0.4s ease;
         }
-        .hero-circle-1 {
-          width: 34px;
-          height: 34px;
-          top: 30px;
-          right: 138px;
+        @keyframes pFade {
+          from { opacity: 0; transform: translateY(4px); }
+          to { opacity: 1; transform: translateY(0); }
         }
-        .hero-circle-2 {
+        .p-lab {
+          display: inline-block;
+          font-size: 11px;
+          font-weight: 700;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+          color: var(--ad-orange);
+          margin-bottom: 8px;
+        }
+        .p-slide p {
+          margin: 0;
+          max-width: 720px;
+          font-size: 15px;
+          line-height: 1.65;
+          color: var(--ad-navy);
+        }
+        .p-foot {
+          display: flex;
+          justify-content: flex-end;
+          margin-top: 14px;
+        }
+        .p-dots {
+          display: flex;
+          gap: 6px;
+        }
+        .p-dot {
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          background: var(--border);
+          border: none;
+          cursor: pointer;
+          padding: 0;
+          transition: all 0.25s ease;
+        }
+        .p-dot.active {
           width: 18px;
-          height: 18px;
-          top: 72px;
-          right: 98px;
-          animation-delay: 3s;
+          border-radius: 4px;
+          background: var(--ad-orange);
         }
 
-        @keyframes heroFloat {
-          0%,
-          100% {
-            transform: translate3d(0, 0, 0);
-          }
-          50% {
-            transform: translate3d(0, -8px, 0);
-          }
+        /* ======== VALUES ======== */
+        .values-section {
+          background: #ffffff;
+          border: 1px solid var(--border);
+          border-radius: 16px;
+          padding: 22px 24px;
+        }
+        .values-grid-static {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 10px;
+          margin-top: 14px;
+        }
+        .value-card {
+          display: flex;
+          align-items: flex-start;
+          gap: 10px;
+          padding: 12px 14px;
+          border-radius: 10px;
+          background: var(--bg-page);
+          border: 1px solid var(--border);
+        }
+        .value-num {
+          font-family: "JetBrains Mono", monospace;
+          font-size: 11px;
+          font-weight: 700;
+          color: var(--ad-orange);
+          flex-shrink: 0;
+          margin-top: 1px;
+        }
+        .value-text {
+          font-size: 13px;
+          line-height: 1.45;
+          color: var(--ad-navy);
+          font-weight: 500;
         }
 
-        .hero-mesh {
-          position: absolute;
-          top: 0;
-          right: 0;
-          width: 40%;
-          height: 58%;
-          opacity: 0.035;
-          pointer-events: none;
-          background:
-            radial-gradient(circle at 22% 35%, rgba(18, 58, 120, 0.9) 1px, transparent 1.5px),
-            radial-gradient(circle at 45% 22%, rgba(18, 58, 120, 0.85) 1px, transparent 1.5px),
-            radial-gradient(circle at 68% 40%, rgba(18, 58, 120, 0.75) 1px, transparent 1.5px),
-            linear-gradient(132deg, transparent 36%, rgba(18, 58, 120, 0.65) 37%, transparent 39%),
-            linear-gradient(162deg, transparent 52%, rgba(18, 58, 120, 0.58) 53%, transparent 55%);
-          mask-image: radial-gradient(circle at 80% 20%, black 40%, transparent 95%);
-          -webkit-mask-image: radial-gradient(circle at 80% 20%, black 40%, transparent 95%);
-          animation: meshDrift 20s ease-in-out infinite;
-          transform: translate3d(0, 0, 0);
-          z-index: 0;
-        }
 
-        .hero-particles {
-          position: absolute;
-          inset: 0;
-          pointer-events: none;
-          opacity: 0.016;
-          z-index: 0;
-          background-image: radial-gradient(circle, rgba(18, 58, 120, 0.9) 0.8px, transparent 1px);
-          background-size: 28px 28px;
-          animation: particlesFloat 20s linear infinite;
-        }
-
-        @keyframes meshDrift {
-          0%,
-          100% {
-            transform: translate3d(0, 0, 0);
-          }
-          50% {
-            transform: translate3d(-8px, 6px, 0);
-          }
-        }
-
-        @keyframes particlesFloat {
-          0% {
-            transform: translate3d(0, 0, 0);
-          }
-          50% {
-            transform: translate3d(-10px, 8px, 0);
-          }
-          100% {
-            transform: translate3d(0, 0, 0);
-          }
-        }
-
+        /* ======== APPLICATIONS SECTION ======== */
         @keyframes cardEnter {
           from {
             opacity: 0;
@@ -451,147 +589,6 @@ export default function CenterContent({ activeView }: CenterContentProps) {
             transform: translate3d(0, 0, 0);
           }
         }
-        .hero-slider:hover .nav-arrow { opacity: 1; pointer-events: auto; }
-
-        .slide {
-          position: absolute;
-          inset: 0;
-          padding: 24px 60px;
-          opacity: 0;
-          transform: translateY(12px);
-          transition: opacity 0.45s ease, transform 0.45s ease;
-          z-index: 1;
-        }
-        .slide.active { opacity: 1; transform: translateY(0); z-index: 2; }
-
-        .slide-badge {
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-          background: var(--bg-card-solid);
-          border: 1px solid var(--border);
-          border-radius: 999px;
-          padding: 4px 14px;
-          font-size: 13px;
-          font-weight: 600;
-          color: var(--accent);
-          margin-bottom: 10px;
-          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-          position: relative;
-        }
-
-        .slide-badge::before {
-          content: "";
-          width: 8px;
-          height: 8px;
-          border-radius: 50%;
-          background: #f26522;
-          display: inline-block;
-          margin-right: 6px;
-          box-shadow: 0 0 0 0 rgba(242, 101, 34, 0.28);
-          animation: badgeDotPulse 2.6s ease-in-out infinite;
-        }
-
-        @keyframes badgeDotPulse {
-          0%,
-          100% {
-            box-shadow: 0 0 0 0 rgba(242, 101, 34, 0.3);
-          }
-          50% {
-            box-shadow: 0 0 0 6px rgba(242, 101, 34, 0);
-          }
-        }
-        .badge-page {
-          font-size: 11px;
-          font-weight: 500;
-          color: var(--text-muted);
-          background: var(--accent-light);
-          padding: 1px 7px;
-          border-radius: 999px;
-        }
-        .slide p {
-          max-width: 620px;
-          font-size: 15px;
-          line-height: 1.75;
-          color: #334155;
-          margin: 0;
-        }
-        .hl {
-          color: var(--accent);
-          background: rgba(242, 101, 34, 0.14);
-          padding: 1px 6px;
-          border-radius: 4px;
-        }
-        .values-grid {
-          display: grid;
-          grid-template-columns: repeat(2, 1fr);
-          gap: 6px 12px;
-          margin-top: 6px;
-        }
-        .value-chip {
-          font-size: 15px;
-          line-height: 1.75;
-          color: #334155;
-        }
-        .vn {
-          font-size: 13px;
-          font-weight: 800;
-          color: var(--accent);
-          background: var(--accent-light);
-          padding: 2px 6px;
-          border-radius: 4px;
-        }
-        .nav-arrow {
-          position: absolute;
-          top: 50%;
-          transform: translateY(-50%);
-          background: var(--bg-card-solid);
-          border: 1px solid var(--border);
-          color: var(--text-primary);
-          font-size: 20px;
-          width: 34px;
-          height: 34px;
-          border-radius: 12px;
-          cursor: pointer;
-          z-index: 5;
-          box-shadow: var(--shadow-sm);
-          opacity: 0;
-          pointer-events: none;
-          transition: all 0.25s ease;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-        .nav-arrow:hover {
-          background: var(--accent);
-          color: white;
-          border-color: var(--accent);
-          box-shadow: var(--shadow-glow);
-        }
-        .nav-arrow.left { left: 14px; }
-        .nav-arrow.right { right: 14px; }
-
-        .slide-indicators {
-          position: absolute;
-          bottom: 16px;
-          right: 60px;
-          display: flex;
-          gap: 8px;
-          z-index: 5;
-        }
-        .ind {
-          width: 8px;
-          height: 8px;
-          border-radius: 50%;
-          background: rgba(31, 58, 104, 0.2);
-          border: none;
-          cursor: pointer;
-          transition: all 0.3s ease;
-          padding: 0;
-        }
-        .ind.active { width: 24px; border-radius: 6px; background: var(--accent); }
-
-        /* ======== APPLICATIONS SECTION ======== */
         .apps-section {
           position: relative;
           padding: 24px;
@@ -649,6 +646,7 @@ export default function CenterContent({ activeView }: CenterContentProps) {
           margin: 3px 0 0;
         }
         .app-count {
+          font-family: "JetBrains Mono", monospace;
           font-size: 12px;
           font-weight: 600;
           color: var(--accent);
@@ -727,6 +725,35 @@ export default function CenterContent({ activeView }: CenterContentProps) {
           transform: translateY(0);
         }
 
+        /* AI-native apps get the deep-navy + cyan surface — the brand's
+           reserved signal for "AI is present here". */
+        .app-card-ai {
+          background: linear-gradient(160deg, var(--ad-navy), var(--ad-ai-navy));
+          border-color: rgba(6, 182, 212, 0.25);
+        }
+        .app-card-ai .app-info h4 {
+          color: #ffffff;
+        }
+        .app-card-ai .app-info p {
+          color: rgba(255, 255, 255, 0.6);
+        }
+        .app-card-ai .app-icon {
+          background: rgba(6, 182, 212, 0.16) !important;
+        }
+        .app-card-ai .app-icon img {
+          filter: brightness(0) saturate(100%) invert(72%) sepia(53%) saturate(1000%) hue-rotate(140deg) brightness(97%) contrast(96%);
+        }
+        .app-card-ai .app-arrow {
+          color: var(--ad-ai-cyan);
+        }
+        .app-card-ai:hover {
+          background: linear-gradient(160deg, #24447a, var(--ad-navy));
+          border-color: rgba(6, 182, 212, 0.45);
+        }
+        .app-card-ai .tooltip {
+          background: var(--ad-ai-navy);
+        }
+
         .app-icon-wrap {
           position: relative;
           flex-shrink: 0;
@@ -798,52 +825,71 @@ export default function CenterContent({ activeView }: CenterContentProps) {
           z-index: 1;
         }
 
-        :global(html[data-theme="dark"]) .hero-card {
-          background: #123a78;
-          border-color: rgba(169, 198, 245, 0.22);
-          box-shadow: 0 10px 24px rgba(7, 20, 49, 0.36);
+        :global(html[data-theme="dark"]) .purpose-card {
+          background: var(--bg-card);
+          border-color: var(--border);
         }
-        :global(html[data-theme="dark"]) .hero-slider {
-          background: radial-gradient(circle at 82% 12%, rgba(167, 198, 246, 0.18), #123a78 46%, #0d2f66 78%, #123a78 100%);
+        :global(html[data-theme="dark"]) .p-slide p {
+          color: var(--text-primary);
         }
-        :global(html[data-theme="dark"]) .slide-badge {
-          background: #173f7f;
-          border-color: rgba(191, 213, 249, 0.3);
+        :global(html[data-theme="dark"]) .values-section {
+          background: var(--bg-card);
+          border-color: var(--border);
         }
-        :global(html[data-theme="dark"]) .slide p,
-        :global(html[data-theme="dark"]) .value-chip {
-          color: #eaf2ff;
+        :global(html[data-theme="dark"]) .value-card {
+          background: var(--bg-soft);
+          border-color: var(--border);
+        }
+        :global(html[data-theme="dark"]) .value-text {
+          color: var(--text-primary);
         }
         :global(html[data-theme="dark"]) .apps-section {
-          background: #123a78;
-          border-color: rgba(169, 198, 245, 0.22);
+          background: var(--bg-card);
+          border-color: var(--border);
           box-shadow: 0 10px 24px rgba(7, 20, 49, 0.36);
         }
         :global(html[data-theme="dark"]) .section-title {
-          color: #ffffff;
+          color: var(--text-primary);
         }
         :global(html[data-theme="dark"]) .section-sub {
-          color: #d6e6ff;
+          color: var(--text-secondary);
         }
         :global(html[data-theme="dark"]) .app-count {
           background: rgba(242, 101, 34, 0.22);
           color: #ffd5c1;
         }
         :global(html[data-theme="dark"]) .app-card {
-          background: #1f4a8f;
-          border-color: rgba(188, 211, 248, 0.24);
+          background: var(--bg-soft);
+          border-color: var(--border);
           box-shadow: 0 6px 16px rgba(7, 20, 49, 0.3);
         }
         :global(html[data-theme="dark"]) .app-card:hover {
-          background: #28569f;
-          border-color: rgba(211, 226, 250, 0.38);
+          background: var(--bg-soft-hover);
+          border-color: var(--border-accent);
           box-shadow: 0 16px 30px rgba(7, 20, 49, 0.42);
         }
         :global(html[data-theme="dark"]) .app-info h4 {
-          color: #ffffff;
+          color: var(--text-primary);
         }
         :global(html[data-theme="dark"]) .app-info p {
-          color: #d6e6ff;
+          color: var(--text-secondary);
+        }
+        /* AI cards must stay visually distinct from regular cards even in
+           dark mode — without this, the rule above (same specificity, later
+           in source) overwrites the deep-navy + cyan surface. */
+        :global(html[data-theme="dark"]) .app-card-ai {
+          background: linear-gradient(160deg, var(--ad-navy), var(--ad-ai-navy));
+          border-color: rgba(6, 182, 212, 0.4);
+        }
+        :global(html[data-theme="dark"]) .app-card-ai:hover {
+          background: linear-gradient(160deg, #24447a, var(--ad-navy));
+          border-color: rgba(6, 182, 212, 0.55);
+        }
+        :global(html[data-theme="dark"]) .app-card-ai .app-info h4 {
+          color: #ffffff;
+        }
+        :global(html[data-theme="dark"]) .app-card-ai .app-info p {
+          color: rgba(255, 255, 255, 0.6);
         }
 
         @media (prefers-reduced-motion: reduce) {
@@ -854,7 +900,6 @@ export default function CenterContent({ activeView }: CenterContentProps) {
             transition: none !important;
           }
 
-          .hero-card,
           .apps-section {
             opacity: 1;
             transform: none;
@@ -882,26 +927,16 @@ export default function CenterContent({ activeView }: CenterContentProps) {
 
 
         @media (max-width: 900px) {
-          .values-grid { grid-template-columns: repeat(2, 1fr); }
-          .hero-slider { height: auto; min-height: 210px; }
-          .slide { padding: 22px 24px; }
+          .values-grid-static { grid-template-columns: repeat(2, 1fr); }
           .app-grid { grid-template-columns: repeat(2, 1fr); }
         }
 
         /* ===== MOBILE ===== */
         @media (max-width: 560px) {
           .center-wrapper { gap: 12px; }
-          .hero-slider { height: auto; min-height: 180px; padding: 16px 18px 34px; }
-          .slide { position: relative; padding: 14px 4px; opacity: 0; display: none; }
-          .slide.active { display: block; opacity: 1; }
-          .slide p { font-size: 13px; line-height: 1.6; }
-          .slide-badge { font-size: 12px; padding: 3px 10px; }
-          .nav-arrow { opacity: 0.7; pointer-events: auto; width: 28px; height: 28px; font-size: 16px; }
-          .nav-arrow.left { left: 6px; }
-          .nav-arrow.right { right: 6px; }
-          .slide-indicators { right: 20px; bottom: 10px; }
-          .values-grid { grid-template-columns: 1fr; gap: 4px; }
-          .value-chip { font-size: 13px; }
+          .ai-band { padding: 18px 18px; }
+          .ai-brief { font-size: 14px; }
+          .values-grid-static { grid-template-columns: 1fr; gap: 8px; }
 
           /* Apps section mobile */
           .apps-section {

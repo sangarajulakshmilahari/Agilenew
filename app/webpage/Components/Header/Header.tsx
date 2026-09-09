@@ -58,15 +58,6 @@ export default function Header({
   return (
     <>
       <header className="header">
-        {/* Animated background layers */}
-        <div className="header-bg">
-          <div className="bg-gradient" />
-          <div className="bg-orb orb-1" />
-          <div className="bg-orb orb-2" />
-          <div className="bg-orb orb-3" />
-          <div className="bg-shimmer" />
-        </div>
-
         {/* LEFT */}
         <div className="header-left">
           {/* Hamburger button — visible only on mobile */}
@@ -116,110 +107,8 @@ export default function Header({
           position: sticky;
           top: 0;
           z-index: 100;
-          overflow: hidden;
-        }
-
-        /* ---- Animated background ---- */
-        .header-bg {
-          position: absolute;
-          inset: 0;
-          z-index: 0;
-          overflow: hidden;
-        }
-
-        .bg-gradient {
-          position: absolute;
-          inset: 0;
           background: var(--bg-card-solid);
-          backdrop-filter: blur(24px);
-          -webkit-backdrop-filter: blur(24px);
-        }
-
-        .bg-orb {
-          position: absolute;
-          border-radius: 50%;
-          filter: blur(40px);
-          opacity: 0.5;
-        }
-
-        .orb-1 {
-          width: 180px;
-          height: 180px;
-          background: transparent;
-          top: -80px;
-          left: 15%;
-          animation: none;
-        }
-
-        .orb-2 {
-          width: 140px;
-          height: 140px;
-          background: transparent;
-          top: -50px;
-          right: 25%;
-          animation: none;
-        }
-
-        .orb-3 {
-          width: 120px;
-          height: 120px;
-          background: transparent;
-          bottom: -60px;
-          right: 10%;
-          animation: none;
-        }
-
-        @keyframes headerOrb1 {
-          0%,
-          100% {
-            transform: translate(0, 0) scale(1);
-          }
-          33% {
-            transform: translate(60px, 10px) scale(1.1);
-          }
-          66% {
-            transform: translate(-30px, -5px) scale(0.95);
-          }
-        }
-
-        @keyframes headerOrb2 {
-          0%,
-          100% {
-            transform: translate(0, 0) scale(1);
-          }
-          50% {
-            transform: translate(-40px, 8px) scale(1.08);
-          }
-        }
-
-        @keyframes headerOrb3 {
-          0%,
-          100% {
-            transform: translate(0, 0) scale(1);
-          }
-          33% {
-            transform: translate(20px, -10px) scale(1.05);
-          }
-          66% {
-            transform: translate(-20px, 5px) scale(0.97);
-          }
-        }
-
-        /* Slow moving shimmer sweep */
-        .bg-shimmer {
-          position: absolute;
-          inset: 0;
-          background: transparent;
-          animation: none;
-        }
-
-        @keyframes shimmerSweep {
-          0% {
-            background-position: 150% 0%;
-          }
-          100% {
-            background-position: -150% 0%;
-          }
+          border-bottom: 1px solid var(--border);
         }
 
         /* ---- LEFT ---- */
@@ -427,9 +316,6 @@ export default function Header({
           box-shadow: 0 4px 14px rgba(242, 101, 34, 0.35);
         }
 
-        :global(html[data-theme="dark"]) .bg-gradient {
-          background: linear-gradient(180deg, #123a78 0%, #0d2f66 100%);
-        }
         :global(html[data-theme="dark"]) .user-pill {
           background: #1a4689;
           border-color: rgba(188, 211, 248, 0.3);

@@ -1,6 +1,6 @@
 import React from "react";
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Cake, PartyPopper, Gift, X, Mail } from "lucide-react";
 
@@ -12,21 +12,325 @@ export default function RightPanel() {
     date_of_birth: string;
   };
 
+  type EventPhoto = {
+    photoId: number;
+    fileName: string;
+    filePath: string;
+  };
+
+  type EventGallery = {
+    eventId: number;
+    eventName: string;
+    eventType?: string;
+    photos: EventPhoto[];
+  };
+
+  type EventOption = {
+    eventId: number;
+    eventName: string;
+  };
+
+  const ALLOWED_PHOTO_TYPES = new Set([
+    "image/png",
+    "image/jpeg",
+    "image/jpg",
+    "image/webp",
+  ]);
+  const MAX_PHOTO_SIZE = 10 * 1024 * 1024;
+
   const [birthdays, setBirthdays] = useState<Birthday[]>([]);
   const [selectedPerson, setSelectedPerson] = useState<Birthday | null>(null);
-  const [user, setUser] = useState<{ username: string } | null>(null);
+  const [user, setUser] = useState<{ username: string; roles?: string[] } | null>(null);
   const [confetti, setConfetti] = useState<{ id: number; x: number; color: string; delay: number; dur: number; shape: string }[]>([]);
 
-  const eventImages = [
-    "/Eventimages/1.png","/Eventimages/2.png","/Eventimages/3.png",
-    "/Eventimages/4.png","/Eventimages/5.jpg","/Eventimages/6.jpeg",
-    "/Eventimages/7.jpeg","/Eventimages/8.jpeg","/Eventimages/9.jpeg",
-  ];
+  const [eventGalleries, setEventGalleries] = useState<EventGallery[]>([]);
+  const [eventOptions, setEventOptions] = useState<EventOption[]>([]);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadNote, setUploadNote] = useState("");
+  const [uploadModalOpen, setUploadModalOpen] = useState(false);
+  const [createEventMode, setCreateEventMode] = useState(false);
+  const [selectedEventId, setSelectedEventId] = useState("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [loadingEvents, setLoadingEvents] = useState(false);
+  const [creatingEvent, setCreatingEvent] = useState(false);
+  const [modalError, setModalError] = useState("");
+  const [eventForm, setEventForm] = useState({
+    eventName: "",
+    eventType: "",
+    eventDate: "",
+    location: "",
+    description: "",
+  });
 
   const [currentIndex, setCurrentIndex] = useState(0);
+
+  const featuredEvent = eventGalleries[0];
+  const secondaryEventA = eventGalleries[1];
+  const secondaryEventB = eventGalleries[2];
+
+  const featuredPhotos = featuredEvent?.photos ?? [];
+  const secondaryPhotosA = secondaryEventA?.photos ?? [];
+  const secondaryPhotosB = secondaryEventB?.photos ?? [];
+
+  const featuredEventImage =
+    featuredPhotos[currentIndex % Math.max(featuredPhotos.length, 1)]?.filePath ?? "";
+  const diwaliEventImage =
+    secondaryPhotosA[currentIndex % Math.max(secondaryPhotosA.length, 1)]?.filePath ?? "";
+  const dussehraSecondaryEventImage =
+    secondaryPhotosB[currentIndex % Math.max(secondaryPhotosB.length, 1)]?.filePath ?? "";
+
+  const eventHighlights = [
+    {
+      title: featuredEvent?.eventName ?? "",
+      meta: featuredEvent ? `${featuredPhotos.length} photos` : "",
+    },
+    {
+      title: secondaryEventA?.eventName ?? "",
+      meta: secondaryEventA ? `${secondaryPhotosA.length} photos` : "",
+    },
+    {
+      title: secondaryEventB?.eventName ?? "",
+      meta: secondaryEventB ? `${secondaryPhotosB.length} photos` : "",
+    },
+  ];
+
+  const eventImages = eventGalleries.flatMap((event) =>
+    event.photos.map((photo) => photo.filePath),
+  );
+
   const [bdayLoading, setBdayLoading] = useState(true);
   const [carouselReady, setCarouselReady] = useState(false);
-  const [lightboxImg, setLightboxImg] = useState<string | null>(null);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+
+  const activeLightboxImage =
+    lightboxIndex !== null && eventImages.length > 0
+      ? eventImages[(lightboxIndex + eventImages.length) % eventImages.length]
+      : null;
+
+  const canUpload =
+    !!selectedEventId &&
+    !!selectedFile &&
+    ALLOWED_PHOTO_TYPES.has((selectedFile.type || "").toLowerCase()) &&
+    selectedFile.size > 0 &&
+    selectedFile.size <= MAX_PHOTO_SIZE;
+
+  const canCreateEvent = Array.isArray(user?.roles)
+    ? user.roles.some((role) => String(role).toLowerCase() === "hr")
+    : false;
+
+  function openLightboxBySrc(src: string) {
+    if (!src || eventImages.length === 0) return;
+    const idx = eventImages.indexOf(src);
+    setLightboxIndex(idx >= 0 ? idx : 0);
+  }
+
+  function closeLightbox() {
+    setLightboxIndex(null);
+  }
+
+  function showPrevLightbox(e?: React.MouseEvent) {
+    e?.stopPropagation();
+    setLightboxIndex((p) => {
+      if (p === null || eventImages.length === 0) return p;
+      return (p - 1 + eventImages.length) % eventImages.length;
+    });
+  }
+
+  function showNextLightbox(e?: React.MouseEvent) {
+    e?.stopPropagation();
+    setLightboxIndex((p) => {
+      if (p === null || eventImages.length === 0) return p;
+      return (p + 1) % eventImages.length;
+    });
+  }
+
+  async function loadEventGalleries() {
+    try {
+      const r = await fetch("/api/events/photos", { cache: "no-store" });
+      if (!r.ok) {
+        setCarouselReady(true);
+        return;
+      }
+      const d = await r.json();
+      if (Array.isArray(d.events)) {
+        setEventGalleries(d.events);
+        if (!d.events[0]?.photos?.length) setCarouselReady(true);
+      } else {
+        setCarouselReady(true);
+      }
+    } catch {
+      setCarouselReady(true);
+    }
+  }
+
+  async function loadEventOptions() {
+    setLoadingEvents(true);
+    try {
+      const r = await fetch("/api/events", { cache: "no-store" });
+      if (!r.ok) {
+        const d = await r.json().catch(() => ({}));
+        throw new Error(d?.error || "Unable to load events.");
+      }
+      const d = await r.json();
+      if (Array.isArray(d.events)) {
+        setEventOptions(d.events);
+      }
+    } catch (err: any) {
+      setModalError(err?.message || "Unable to load events.");
+    } finally {
+      setLoadingEvents(false);
+    }
+  }
+
+  function resetUploadModal() {
+    setUploadModalOpen(false);
+    setCreateEventMode(false);
+    setSelectedEventId("");
+    setSelectedFile(null);
+    setCreatingEvent(false);
+    setUploading(false);
+    setModalError("");
+    setEventForm({
+      eventName: "",
+      eventType: "",
+      eventDate: "",
+      location: "",
+      description: "",
+    });
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  function openUploadModal() {
+    setUploadNote("");
+    setModalError("");
+    setCreateEventMode(false);
+    setSelectedFile(null);
+    setUploadModalOpen(true);
+    loadEventOptions();
+  }
+
+  function isValidPhoto(file: File) {
+    const mime = (file.type || "").toLowerCase();
+    if (!ALLOWED_PHOTO_TYPES.has(mime)) {
+      return "Only PNG, JPG, JPEG, and WEBP are allowed";
+    }
+    if (file.size > MAX_PHOTO_SIZE) {
+      return "File is too large. Maximum size is 10MB";
+    }
+    return "";
+  }
+
+  async function handlePhotoUpload() {
+    if (!selectedEventId) {
+      setModalError("Please select an event.");
+      return;
+    }
+    if (!selectedFile) {
+      setModalError("Please select a photo.");
+      return;
+    }
+
+    const validationError = isValidPhoto(selectedFile);
+    if (validationError) {
+      setModalError(validationError);
+      return;
+    }
+
+    try {
+      setUploading(true);
+      setModalError("");
+      setUploadNote("");
+
+      const formData = new FormData();
+      formData.append("photo", selectedFile);
+      formData.append("eventId", selectedEventId);
+
+      const r = await fetch("/api/events/photos", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!r.ok) {
+        const d = await r.json().catch(() => ({}));
+        throw new Error(d?.error || "Upload failed");
+      }
+
+      await loadEventGalleries();
+      resetUploadModal();
+      setUploadNote("Photo uploaded successfully.");
+      setTimeout(() => setUploadNote(""), 2600);
+    } catch (err: any) {
+      setModalError(err?.message || "Unable to upload photo.");
+      setUploadNote("");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function handleCreateEvent() {
+    if (!canCreateEvent) {
+      setCreateEventMode(false);
+      setModalError("Only HR can create events.");
+      return;
+    }
+
+    const eventName = eventForm.eventName.trim();
+    if (!eventName) {
+      setModalError("Event name is required.");
+      return;
+    }
+
+    try {
+      setCreatingEvent(true);
+      setModalError("");
+
+      const r = await fetch("/api/events", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          eventName,
+          eventType: eventForm.eventType.trim(),
+          eventDate: eventForm.eventDate.trim(),
+          location: eventForm.location.trim(),
+          description: eventForm.description.trim(),
+        }),
+      });
+
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        throw new Error(d?.error || "Unable to create event.");
+      }
+
+      const created = d?.event;
+      if (!created?.eventId) {
+        throw new Error("Unable to create event.");
+      }
+
+      const newOption: EventOption = {
+        eventId: created.eventId,
+        eventName: created.eventName,
+      };
+
+      setEventOptions((prev) => {
+        if (prev.some((event) => event.eventId === newOption.eventId)) return prev;
+        return [newOption, ...prev];
+      });
+      setSelectedEventId(String(created.eventId));
+      setCreateEventMode(false);
+      setEventForm({
+        eventName: "",
+        eventType: "",
+        eventDate: "",
+        location: "",
+        description: "",
+      });
+    } catch (err: any) {
+      setModalError(err?.message || "Unable to create event.");
+    } finally {
+      setCreatingEvent(false);
+    }
+  }
 
   const confettiColors = ["#F26522","#1F3A68","#475569","#F8F4EF","#d97745","#2f4d7f","#8fa1bb","#f3ded1"];
   const shapes = ["circle","square","ribbon"];
@@ -45,12 +349,55 @@ export default function RightPanel() {
   }
 
   useEffect(() => {
+    if (featuredPhotos.length <= 1) return;
     const iv = setInterval(
-      () => setCurrentIndex(p => p === eventImages.length - 1 ? 0 : p + 1),
+      () => setCurrentIndex((p) => (p + 1) % featuredPhotos.length),
       5000,
     );
     return () => clearInterval(iv);
+  }, [featuredPhotos.length]);
+
+  useEffect(() => {
+    loadEventGalleries();
   }, []);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        if (lightboxIndex !== null) {
+          closeLightbox();
+          return;
+        }
+        if (uploadModalOpen) {
+          if (createEventMode) {
+            setCreateEventMode(false);
+            setModalError("");
+          } else {
+            resetUploadModal();
+          }
+          return;
+        }
+      }
+      if (lightboxIndex === null) return;
+      if (e.key === "ArrowLeft") {
+        setLightboxIndex((p) =>
+          p === null || eventImages.length === 0
+            ? p
+            : (p - 1 + eventImages.length) % eventImages.length,
+        );
+      }
+      if (e.key === "ArrowRight") {
+        setLightboxIndex((p) =>
+          p === null || eventImages.length === 0
+            ? p
+            : (p + 1) % eventImages.length,
+        );
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [lightboxIndex, eventImages.length, uploadModalOpen, createEventMode]);
 
   useEffect(() => {
     (async () => { try { const r = await fetch("/api/birthdays"); setBirthdays(await r.json()); } catch {} finally { setBdayLoading(false); } })();
@@ -94,26 +441,60 @@ export default function RightPanel() {
   return (
     <aside className="right-panel">
       {/* ======= EVENTS CAROUSEL ======= */}
-      <div className="panel-card events-card">
-        <div className="card-decor"><div className="cd-orb cd-orb-1" /></div>
-        <div className="card-header">
-          <h3>Past Events</h3>
-          <span className="badge">{eventImages.length} Photos</span>
-        </div>
-        <div className="carousel" onClick={() => setLightboxImg(eventImages[currentIndex])}>
-          {!carouselReady && <div className="carousel-skeleton" />}
-          <div className="carousel-image-layer" key={eventImages[currentIndex]}>
-            <Image src={eventImages[currentIndex]} alt="event" fill priority style={{ objectFit: "cover" }} onLoad={() => setCarouselReady(true)} />
+        <div className="panel-card events-card">
+          <div className="card-decor"><div className="cd-orb cd-orb-1" /></div>
+          <div className="card-header">
+            <h3>Life at Adroitent</h3>
+            <button className="gallery-link" onClick={() => openLightboxBySrc(featuredEventImage)}>Gallery</button>
           </div>
-          <div className="carousel-fade" />
-          <button className="cbtn cl" onClick={(e) => { e.stopPropagation(); setCurrentIndex(p => p === 0 ? eventImages.length - 1 : p - 1); }}>‹</button>
-          <button className="cbtn cr" onClick={(e) => { e.stopPropagation(); setCurrentIndex(p => p === eventImages.length - 1 ? 0 : p + 1); }}>›</button>
-          <div className="dots" onClick={e => e.stopPropagation()}>
-            {eventImages.map((_, i) => (
-              <span key={i} className={`dot ${i === currentIndex ? "on" : ""}`} onClick={() => setCurrentIndex(i)} />
-            ))}
+
+        <div className="event-gallery-layout">
+          <div className="event-feature-tile" onClick={() => openLightboxBySrc(featuredEventImage)}>
+            {!carouselReady && <div className="carousel-skeleton" />}
+            {featuredEventImage ? (
+              <div className="carousel-image-layer" key={featuredEventImage}>
+                <Image src={featuredEventImage} alt={eventHighlights[0].title || "event"} fill priority style={{ objectFit: "cover" }} onLoad={() => setCarouselReady(true)} />
+              </div>
+            ) : null}
+            <div className="event-overlay" />
+            <div className="event-caption">
+              <p className="event-title">{eventHighlights[0].title}</p>
+              <p className="event-meta">{eventHighlights[0].meta}</p>
+            </div>
           </div>
-          <div className="counter">{currentIndex + 1}/{eventImages.length}</div>
+
+          <div className="event-subgrid">
+            <div className="event-mini-tile event-mini-left" onClick={() => openLightboxBySrc(diwaliEventImage)}>
+              {diwaliEventImage ? (
+                <div className="carousel-image-layer" key={diwaliEventImage}>
+                  <Image src={diwaliEventImage} alt={eventHighlights[1].title || "event"} fill style={{ objectFit: "cover" }} />
+                </div>
+              ) : null}
+              <div className="event-overlay" />
+              <div className="event-caption mini">
+                <p className="event-title">{eventHighlights[1].title}</p>
+                <p className="event-meta">{eventHighlights[1].meta}</p>
+              </div>
+            </div>
+
+            <div className="event-mini-tile event-mini-right" onClick={() => openLightboxBySrc(dussehraSecondaryEventImage)}>
+              {dussehraSecondaryEventImage ? (
+                <div className="carousel-image-layer" key={dussehraSecondaryEventImage}>
+                  <Image src={dussehraSecondaryEventImage} alt={eventHighlights[2].title || "event"} fill style={{ objectFit: "cover" }} />
+                </div>
+              ) : null}
+              <div className="event-overlay light" />
+              <div className="event-caption mini dark">
+                <p className="event-title">{eventHighlights[2].title}</p>
+                <p className="event-meta">{eventHighlights[2].meta}</p>
+              </div>
+            </div>
+          </div>
+
+          <button className="share-tile" onClick={openUploadModal}>
+            {uploading ? "Uploading..." : "+ Share a photo or video"}
+          </button>
+          {!!uploadNote && <p className="upload-note">{uploadNote}</p>}
         </div>
       </div>
 
@@ -217,10 +598,181 @@ export default function RightPanel() {
         document.body,
       )}
 
-      {lightboxImg && createPortal(
-        <div className="lightbox-overlay" onClick={() => setLightboxImg(null)}>
-          <img src={lightboxImg} alt="event" className="lightbox-img" onClick={e => e.stopPropagation()} />
-          <button className="lightbox-close" onClick={() => setLightboxImg(null)}>×</button>
+      {uploadModalOpen && createPortal(
+        <div className="modal-overlay" onClick={resetUploadModal}>
+          <div className="modal upload-modal" onClick={(e) => e.stopPropagation()}>
+            {createEventMode && canCreateEvent ? (
+              <>
+                <h4>Create New Event</h4>
+                <div className="upload-form">
+                  <label className="upload-label">
+                    Event Name
+                    <input
+                      className="upload-input"
+                      type="text"
+                      maxLength={150}
+                      value={eventForm.eventName}
+                      onChange={(e) => setEventForm((prev) => ({ ...prev, eventName: e.target.value }))}
+                      placeholder="Annual Sports Day 2026"
+                    />
+                  </label>
+                  <label className="upload-label">
+                    Event Type
+                    <input
+                      className="upload-input"
+                      type="text"
+                      maxLength={50}
+                      value={eventForm.eventType}
+                      onChange={(e) => setEventForm((prev) => ({ ...prev, eventType: e.target.value }))}
+                      placeholder="Sports"
+                    />
+                  </label>
+                  <label className="upload-label">
+                    Event Date
+                    <input
+                      className="upload-input"
+                      type="date"
+                      value={eventForm.eventDate}
+                      onChange={(e) => setEventForm((prev) => ({ ...prev, eventDate: e.target.value }))}
+                    />
+                  </label>
+                  <label className="upload-label">
+                    Location
+                    <input
+                      className="upload-input"
+                      type="text"
+                      maxLength={150}
+                      value={eventForm.location}
+                      onChange={(e) => setEventForm((prev) => ({ ...prev, location: e.target.value }))}
+                      placeholder="Hyderabad"
+                    />
+                  </label>
+                  <label className="upload-label">
+                    Description
+                    <textarea
+                      className="upload-input upload-textarea"
+                      maxLength={500}
+                      value={eventForm.description}
+                      onChange={(e) => setEventForm((prev) => ({ ...prev, description: e.target.value }))}
+                      placeholder="Annual company sports event"
+                    />
+                  </label>
+                  {!!modalError && <p className="upload-error">{modalError}</p>}
+                  <div className="modal-actions">
+                    <button
+                      className="btn-cancel"
+                      type="button"
+                      onClick={() => {
+                        setCreateEventMode(false);
+                        setModalError("");
+                      }}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      className="btn-send"
+                      type="button"
+                      onClick={handleCreateEvent}
+                      disabled={creatingEvent || !eventForm.eventName.trim()}
+                    >
+                      {creatingEvent ? "Creating..." : "Create Event"}
+                    </button>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                <h4>Share a photo</h4>
+                <div className="upload-form">
+                  <label className="upload-label">
+                    Event
+                    <select
+                      className="upload-input"
+                      value={selectedEventId}
+                      onChange={(e) => {
+                        setSelectedEventId(e.target.value);
+                        setModalError("");
+                      }}
+                      disabled={loadingEvents}
+                    >
+                      <option value="">
+                        {loadingEvents ? "Loading events..." : "Select an event"}
+                      </option>
+                      {eventOptions.map((event) => (
+                        <option key={event.eventId} value={event.eventId}>
+                          {event.eventName}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  {canCreateEvent && (
+                    <button
+                      type="button"
+                      className="create-event-btn"
+                      onClick={() => {
+                        setCreateEventMode(true);
+                        setModalError("");
+                      }}
+                    >
+                      + Create New Event
+                    </button>
+                  )}
+                  <label className="upload-label">
+                    Photo
+                    <input
+                      ref={fileInputRef}
+                      className="upload-input"
+                      type="file"
+                      accept="image/png,image/jpeg,image/jpg,image/webp"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0] ?? null;
+                        if (!file) {
+                          setSelectedFile(null);
+                          return;
+                        }
+                        const error = isValidPhoto(file);
+                        if (error) {
+                          setSelectedFile(null);
+                          setModalError(error);
+                          e.currentTarget.value = "";
+                          return;
+                        }
+                        setSelectedFile(file);
+                        setModalError("");
+                      }}
+                    />
+                  </label>
+                  {!!modalError && <p className="upload-error">{modalError}</p>}
+                  <div className="modal-actions">
+                    <button className="btn-cancel" type="button" onClick={resetUploadModal}>
+                      Cancel
+                    </button>
+                    <button
+                      className="btn-send"
+                      type="button"
+                      onClick={handlePhotoUpload}
+                      disabled={!canUpload || uploading}
+                    >
+                      {uploading ? "Uploading..." : "Upload"}
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        </div>,
+        document.body,
+      )}
+
+      {activeLightboxImage && createPortal(
+        <div className="lightbox-overlay" onClick={closeLightbox}>
+          <button className="lightbox-nav left" onClick={(e) => showPrevLightbox(e)} aria-label="Previous image">‹</button>
+          <img src={activeLightboxImage} alt="event" className="lightbox-img" onClick={e => e.stopPropagation()} />
+          <button className="lightbox-nav right" onClick={(e) => showNextLightbox(e)} aria-label="Next image">›</button>
+          <div className="lightbox-counter">
+            {(lightboxIndex ?? 0) + 1}/{eventImages.length}
+          </div>
+          <button className="lightbox-close" onClick={closeLightbox}>×</button>
         </div>,
         document.body,
       )}
@@ -248,12 +800,12 @@ export default function RightPanel() {
           position: relative;
           padding: 18px;
           border-radius: var(--radius-lg);
-          border: 1px solid var(--glass-border);
+          border: 1px solid #e4ddd3;
           overflow: hidden;
           background: var(--bg-card);
           backdrop-filter: blur(18px);
           -webkit-backdrop-filter: blur(18px);
-          box-shadow: var(--shadow-sm);
+          box-shadow: 0 8px 20px rgba(31, 58, 104, 0.08);
           transition: transform 240ms ease, box-shadow 240ms ease;
           transform: translate3d(0, 10px, 0);
           opacity: 0;
@@ -276,7 +828,7 @@ export default function RightPanel() {
           }
         }
         .panel-card:hover {
-          box-shadow: 0 16px 30px rgba(15, 23, 42, 0.14);
+          box-shadow: 0 16px 30px rgba(31, 58, 104, 0.12);
           transform: translate3d(0, -4px, 0);
         }
 
@@ -289,6 +841,16 @@ export default function RightPanel() {
         .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; position: relative; z-index: 1; }
         .card-header h3 { font-size: 15px; font-weight: 700; color: var(--text-primary); margin: 0; display: flex; align-items: center; gap: 7px; }
         .badge { font-size: 11px; font-weight: 600; color: var(--accent); background: var(--accent-light); padding: 4px 10px; border-radius: 999px; }
+        .gallery-link {
+          border: none;
+          background: transparent;
+          color: var(--accent);
+          font-size: 13px;
+          font-weight: 600;
+          cursor: pointer;
+          padding: 0;
+        }
+        .gallery-link:hover { opacity: 0.8; }
 
         /* header icons */
         .card-header h3 :global(.cake-icon) {
@@ -296,8 +858,165 @@ export default function RightPanel() {
           flex-shrink: 0;
         }
 
-        /* carousel */
-        .carousel { position: relative; height: 190px; border-radius: var(--radius-md); overflow: hidden; background: #f1f5f9; z-index: 1; cursor: pointer; }
+        /* events gallery */
+        .event-gallery-layout {
+          position: relative;
+          z-index: 1;
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+        }
+        .event-feature-tile,
+        .event-mini-tile {
+          position: relative;
+          border-radius: 10px;
+          overflow: hidden;
+          border: 1px solid #ece4d8;
+          background: #f8f4ef;
+          cursor: pointer;
+        }
+        .event-feature-tile {
+          height: 165px;
+        }
+        .event-subgrid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 10px;
+        }
+        .event-mini-tile {
+          height: 80px;
+        }
+        .event-overlay {
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(to top, rgba(15, 23, 42, 0.55), rgba(15, 23, 42, 0.1));
+          z-index: 1;
+          pointer-events: none;
+        }
+        .event-overlay.light {
+          background: linear-gradient(to top, rgba(255, 255, 255, 0.45), rgba(255, 255, 255, 0.06));
+        }
+        .event-caption {
+          position: absolute;
+          left: 10px;
+          right: 10px;
+          bottom: 9px;
+          z-index: 2;
+        }
+        .event-caption.mini {
+          bottom: 7px;
+        }
+        .event-caption.dark .event-title,
+        .event-caption.dark .event-meta {
+          color: #1f3a68;
+        }
+        .event-title {
+          margin: 0;
+          font-size: 14px;
+          font-weight: 700;
+          color: #ffffff;
+          line-height: 1.25;
+        }
+        .event-meta {
+          margin: 2px 0 0;
+          font-size: 12px;
+          font-weight: 600;
+          color: rgba(255, 255, 255, 0.85);
+        }
+        .event-caption.mini .event-title {
+          font-size: 12px;
+        }
+        .event-caption.mini .event-meta {
+          font-size: 11px;
+        }
+        .play-badge {
+          position: absolute;
+          top: 7px;
+          right: 7px;
+          width: 24px;
+          height: 24px;
+          border-radius: 999px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          background: rgba(31, 58, 104, 0.8);
+          color: #ffffff;
+          z-index: 2;
+          border: 1px solid rgba(255, 255, 255, 0.4);
+        }
+        .share-tile {
+          height: 44px;
+          border-radius: 10px;
+          border: 1px dashed #d8cfc2;
+          background: transparent;
+          color: var(--text-primary);
+          font-size: 14px;
+          font-weight: 700;
+          cursor: pointer;
+          transition: border-color 180ms ease, background 180ms ease;
+        }
+        .share-tile:hover {
+          border-color: rgba(242, 101, 34, 0.5);
+          background: rgba(242, 101, 34, 0.05);
+        }
+        .upload-note {
+          margin: 6px 4px 0;
+          font-size: 12px;
+          color: var(--text-secondary);
+        }
+        .upload-modal {
+          text-align: left;
+          width: 380px;
+        }
+        .upload-modal h4 {
+          text-align: left;
+        }
+        .upload-form {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+        .upload-label {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          font-size: 12px;
+          font-weight: 700;
+          color: var(--text-primary);
+        }
+        .upload-input {
+          width: 100%;
+          box-sizing: border-box;
+          border: 1px solid var(--border, #ece4d8);
+          background: var(--bg-card-solid, #fff);
+          color: var(--text-primary);
+          border-radius: var(--radius-sm);
+          padding: 10px 12px;
+          font-size: 13px;
+          font-weight: 500;
+        }
+        .upload-textarea {
+          min-height: 72px;
+          resize: vertical;
+        }
+        .create-event-btn {
+          align-self: flex-start;
+          border: none;
+          background: transparent;
+          color: var(--accent);
+          font-size: 13px;
+          font-weight: 700;
+          cursor: pointer;
+          padding: 0;
+        }
+        .create-event-btn:hover { opacity: 0.8; }
+        .upload-error {
+          margin: 0;
+          font-size: 12px;
+          font-weight: 600;
+          color: #c2410c;
+        }
+
         .carousel-image-layer {
           position: absolute;
           inset: 0;
@@ -333,20 +1052,10 @@ export default function RightPanel() {
           background-size: 800px 100%;
           animation: skeletonShimmer 1.4s ease-in-out infinite;
         }
-        .carousel-fade { position: absolute; inset: 0; background: linear-gradient(to bottom, transparent 55%, rgba(0,0,0,0.4) 100%); z-index: 1; pointer-events: none; }
-        .cbtn { position: absolute; top: 50%; transform: translateY(-50%); width: 30px; height: 30px; border-radius: 10px; background: var(--bg-card-solid); backdrop-filter: blur(8px); border: none; font-size: 16px; cursor: pointer; z-index: 2; color: var(--text-primary); display: flex; align-items: center; justify-content: center; opacity: 0; transition: all 0.2s ease; box-shadow: var(--shadow-sm); }
-        .carousel:hover .cbtn { opacity: 1; }
-        .cbtn:hover { background: white; transform: translateY(-50%) scale(1.05); }
-        .cl { left: 8px; } .cr { right: 8px; }
-        .dots { position: absolute; bottom: 10px; width: 100%; display: flex; justify-content: center; gap: 6px; z-index: 2; }
-        .dot { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,0.5); cursor: pointer; transition: all 0.3s ease; }
-        .dot.on { width: 18px; border-radius: 4px; background: white; }
-        .counter { position: absolute; top: 10px; right: 10px; font-size: 11px; font-weight: 600; color: white; background: rgba(0,0,0,0.35); backdrop-filter: blur(8px); padding: 3px 10px; border-radius: 999px; z-index: 2; }
-
         /* birthdays */
         .bday-list { display: flex; flex-direction: column; gap: 10px; position: relative; z-index: 1; }
-        .bday-row { display: flex; align-items: center; gap: 12px; padding: 6px 12px; border-radius: var(--radius-sm); background: var(--bg-soft); border: 1px solid transparent; cursor: pointer; transition: background 220ms ease, border-color 220ms ease, transform 220ms ease, box-shadow 220ms ease; }
-        .bday-row:hover { background: rgba(242, 101, 34, 0.09); border-color: rgba(242, 101, 34, 0.24); transform: translate3d(0, -1px, 0); box-shadow: 0 8px 18px rgba(31, 58, 104, 0.09); }
+        .bday-row { display: flex; align-items: center; gap: 12px; padding: 6px 12px; border-radius: var(--radius-sm); background: #ffffff; border: 1px solid #ece4d8; cursor: pointer; transition: background 220ms ease, border-color 220ms ease, transform 220ms ease, box-shadow 220ms ease; }
+        .bday-row:hover { background: rgba(242, 101, 34, 0.09); border-color: rgba(242, 101, 34, 0.24); transform: translate3d(0, -1px, 0); box-shadow: 0 8px 18px rgba(31, 58, 104, 0.08); }
         .bday-row.today { background: rgba(242,101,34,0.12); border-color: rgba(242,101,34,0.28); animation: todayPulse 2.8s ease-in-out infinite; }
         @keyframes todayPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(242,101,34,0.18); } 50% { box-shadow: 0 0 0 6px rgba(242,101,34,0); } }
         .bday-row:hover .wish-btn { opacity: 1; transform: scale(1); }
@@ -359,7 +1068,7 @@ export default function RightPanel() {
         .bday-info { flex: 1; display: flex; flex-direction: column; min-width: 0; }
         .bday-name { font-size: 13px; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .bday-date { font-size: 12px; color: var(--text-muted); }
-        .wish-btn { width: 34px; height: 32px; border-radius: 10px; border: none; background: var(--bg-card-solid); font-size: 16px; cursor: pointer; opacity: 0; transform: scale(0.8); transition: all 0.2s ease; box-shadow: var(--shadow-sm); display: flex; align-items: center; justify-content: center; }
+        .wish-btn { width: 34px; height: 32px; border-radius: 10px; border: 1px solid #ece4d8; background: var(--bg-card-solid); font-size: 16px; cursor: pointer; opacity: 0; transform: scale(0.8); transition: all 0.2s ease; box-shadow: var(--shadow-sm); display: flex; align-items: center; justify-content: center; }
         .wish-btn:hover { background: rgba(242,101,34,0.12); }
         .wish-btn :global(svg) { transition: transform 220ms ease; }
         .bday-row:hover .wish-btn :global(svg) { transform: rotate(-10deg); }
@@ -375,6 +1084,42 @@ export default function RightPanel() {
         :global(html[data-theme="dark"]) .badge {
           background: rgba(242, 101, 34, 0.22);
           color: #ffd5c1;
+        }
+        :global(html[data-theme="dark"]) .gallery-link {
+          color: #ffd5c1;
+        }
+        :global(html[data-theme="dark"]) .event-feature-tile,
+        :global(html[data-theme="dark"]) .event-mini-tile {
+          border-color: rgba(188, 211, 248, 0.24);
+        }
+        :global(html[data-theme="dark"]) .share-tile {
+          border-color: rgba(188, 211, 248, 0.34);
+          color: #ffffff;
+        }
+        :global(html[data-theme="dark"]) .share-tile:hover {
+          border-color: rgba(242, 101, 34, 0.62);
+          background: rgba(242, 101, 34, 0.16);
+        }
+        :global(html[data-theme="dark"]) .upload-note {
+          color: #d6e6ff;
+        }
+        :global(html[data-theme="dark"]) .upload-label {
+          color: #ffffff;
+        }
+        :global(html[data-theme="dark"]) .upload-input {
+          background: #173f7f;
+          border-color: rgba(188, 211, 248, 0.24);
+          color: #ffffff;
+        }
+        :global(html[data-theme="dark"]) .create-event-btn {
+          color: #ffd5c1;
+        }
+        :global(html[data-theme="dark"]) .upload-error {
+          color: #ffd5c1;
+        }
+        :global(html[data-theme="dark"]) .event-caption.dark .event-title,
+        :global(html[data-theme="dark"]) .event-caption.dark .event-meta {
+          color: #ffffff;
         }
         :global(html[data-theme="dark"]) .bday-row {
           background: #1f4a8f;
@@ -533,6 +1278,12 @@ export default function RightPanel() {
         }
         @keyframes btnShine { 0%,60% { left: -100%; } 100% { left: 150%; } }
         .btn-send:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(242,101,34,0.35); }
+        .btn-send:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+          transform: none;
+          box-shadow: none;
+        }
 
         /* ===== LIGHTBOX ===== */
         .lightbox-overlay {
@@ -546,6 +1297,41 @@ export default function RightPanel() {
           object-fit: contain; box-shadow: 0 24px 64px rgba(0,0,0,0.6);
           animation: lightboxIn 0.3s cubic-bezier(0.34,1.56,0.64,1);
           cursor: default;
+        }
+        .lightbox-nav {
+          position: fixed;
+          top: 50%;
+          transform: translateY(-50%);
+          width: 44px;
+          height: 44px;
+          border-radius: 50%;
+          background: rgba(255,255,255,0.18);
+          backdrop-filter: blur(8px);
+          border: 1px solid rgba(255,255,255,0.32);
+          color: white;
+          font-size: 28px;
+          line-height: 1;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 10001;
+          transition: background 0.2s ease;
+        }
+        .lightbox-nav:hover { background: rgba(255,255,255,0.32); }
+        .lightbox-nav.left { left: 22px; }
+        .lightbox-nav.right { right: 22px; }
+        .lightbox-counter {
+          position: fixed;
+          top: 22px;
+          left: 24px;
+          padding: 6px 12px;
+          border-radius: 999px;
+          background: rgba(255,255,255,0.15);
+          color: #fff;
+          font-size: 12px;
+          font-weight: 700;
+          z-index: 10001;
         }
         @keyframes lightboxIn {
           from { opacity: 0; transform: scale(0.85); }
@@ -570,16 +1356,33 @@ export default function RightPanel() {
             overflow: visible;
           }
 
-          .carousel {
-            height: 200px;
+          .event-feature-tile {
+            height: 175px;
+          }
+          .event-subgrid {
+            gap: 8px;
+          }
+          .event-mini-tile {
+            height: 76px;
+          }
+          .share-tile {
+            height: 42px;
+            font-size: 13px;
+          }
+          .lightbox-nav {
+            width: 38px;
+            height: 38px;
+            font-size: 24px;
+          }
+          .lightbox-nav.left { left: 10px; }
+          .lightbox-nav.right { right: 10px; }
+          .lightbox-counter {
+            top: 14px;
+            left: 14px;
+            font-size: 11px;
+            padding: 5px 10px;
           }
 
-          /* Show carousel buttons on mobile (no hover) */
-          .cbtn {
-            opacity: 0.7;
-          }
-
-          /* Show wish button always on mobile */
           .wish-btn {
             opacity: 0.6;
             transform: scale(1);
