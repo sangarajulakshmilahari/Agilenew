@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 
-import Sidebar from "../Components/sidebar/sidebar";
 import Centercontent from "../Components/centercontent/centercontent";
 import RightPanel from "../Components/Rightpanel/rightpanel";
 import Header from "../Components/Header/Header";
+import { canManagePortal } from "@/app/lib/permissions";
 
 function DashboardLoader() {
   return (
@@ -65,66 +65,158 @@ type DashboardView =
   | "learning"
   | "articles"
   | "corner"
+  | "managePortal"
   | "portal"
   | "articleManage";
+
+const ADMIN_VIEWS = new Set<DashboardView>([
+  "managePortal",
+  "portal",
+  "articleManage",
+]);
+
+function parseViewParam(value: string | null): DashboardView | null {
+  if (!value) return null;
+  const map: Record<string, DashboardView> = {
+    home: "home",
+    holiday: "holiday",
+    holidays: "holiday",
+    events: "events",
+    learning: "learning",
+    articles: "articles",
+    corner: "corner",
+    "employee-corner": "corner",
+    "manage-portal": "managePortal",
+    manageportal: "managePortal",
+    portal: "portal",
+    "portal-content": "portal",
+    "article-manage": "articleManage",
+    "article-management": "articleManage",
+  };
+  return map[value.toLowerCase()] ?? null;
+}
+
+function viewToParam(view: DashboardView): string {
+  const map: Record<DashboardView, string> = {
+    home: "home",
+    holiday: "holiday",
+    events: "events",
+    learning: "learning",
+    articles: "articles",
+    corner: "corner",
+    managePortal: "manage-portal",
+    portal: "portal-content",
+    articleManage: "article-management",
+  };
+  return map[view];
+}
 
 export default function Dashboard() {
   const [mounted, setMounted] = useState(false);
   const [activeView, setActiveView] = useState<DashboardView>("home");
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [highlightedPostId, setHighlightedPostId] = useState<string | null>(null);
+  const [canManage, setCanManage] = useState(false);
+  const [rolesReady, setRolesReady] = useState(false);
 
   useEffect(() => {
     const id = window.setTimeout(() => setMounted(true), 0);
     return () => window.clearTimeout(id);
   }, []);
 
-  const handleViewChange = (view: DashboardView) => {
-    setActiveView(view);
-    setMobileSidebarOpen(false);
-  };
+  useEffect(() => {
+    if (!mounted) return;
+    const params = new URLSearchParams(window.location.search);
+    const fromUrl = parseViewParam(params.get("view"));
+    const fromPostId = params.get("postId");
+    if (fromUrl) setActiveView(fromUrl);
+    setHighlightedPostId(fromPostId);
+  }, [mounted]);
+
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const customEvent = event as CustomEvent<{ postId?: string | null }>;
+      const postId = customEvent?.detail?.postId ?? null;
+      setHighlightedPostId(postId);
+      setActiveView("corner");
+    };
+
+    window.addEventListener("adroitent:open-corner-post", handler as EventListener);
+    return () => {
+      window.removeEventListener(
+        "adroitent:open-corner-post",
+        handler as EventListener,
+      );
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!mounted) return;
+    (async () => {
+      try {
+        const res = await fetch("/api/me");
+        const data = await res.json().catch(() => ({}));
+        setCanManage(canManagePortal(data?.roles));
+      } catch {
+        setCanManage(false);
+      } finally {
+        setRolesReady(true);
+      }
+    })();
+  }, [mounted]);
+
+  useEffect(() => {
+    if (!rolesReady) return;
+    if (ADMIN_VIEWS.has(activeView) && !canManage) {
+      setActiveView("home");
+    }
+  }, [rolesReady, canManage, activeView]);
+
+  const handleViewChange = useCallback(
+    (view: DashboardView) => {
+      if (ADMIN_VIEWS.has(view) && rolesReady && !canManage) {
+        setActiveView("home");
+        return;
+      }
+      setActiveView(view);
+    },
+    [rolesReady, canManage],
+  );
+
+  useEffect(() => {
+    if (!mounted || typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    if (activeView === "home") {
+      url.searchParams.delete("view");
+      url.searchParams.delete("postId");
+    } else {
+      url.searchParams.set("view", viewToParam(activeView));
+      if (activeView !== "corner") {
+        url.searchParams.delete("postId");
+      }
+    }
+    window.history.replaceState({}, "", url.toString());
+  }, [activeView, mounted]);
 
   if (!mounted) return <DashboardLoader />;
 
   return (
     <>
-      <div className={`dashboard-page ${sidebarOpen ? "sidebar-open" : "sidebar-closed"}`}>
+      <div className="dashboard-page">
         <div className="dashboard-header">
-          <Header
-            onHamburgerClick={() => setMobileSidebarOpen(!mobileSidebarOpen)}
-            mobileSidebarOpen={mobileSidebarOpen}
-          />
+          <Header activeView={activeView} onChange={handleViewChange} />
         </div>
 
-        {/* Mobile sidebar overlay */}
-        {mobileSidebarOpen && (
-          <div
-            className="mobile-sidebar-overlay"
-            onClick={() => setMobileSidebarOpen(false)}
-          />
-        )}
-
         <div
-          className={`dashboard-layout ${sidebarOpen ? "sidebar-open" : "sidebar-closed"} ${activeView === "corner" ? "no-right" : ""}`}
+          className={`dashboard-layout ${activeView === "corner" ? "no-right" : ""}`}
         >
-          <div
-            className={`sidebar-col ${mobileSidebarOpen ? "mobile-open" : ""}`}
-          >
-            <Sidebar
-              activeView={activeView}
-              onChange={handleViewChange}
-              open={sidebarOpen}
-              mobileOpen={mobileSidebarOpen}
-              setOpen={setSidebarOpen}
-            />
-          </div>
-
           <div className="center-scroll-wrapper">
             <div className="center-column">
-              <Centercontent activeView={activeView} />
+              <Centercontent
+                activeView={activeView}
+                highlightedPostId={highlightedPostId}
+                onChangeView={handleViewChange}
+              />
             </div>
-            {/* Invisible spacer so scrollbar sits at far right */}
-            <div className="scroll-spacer" />
           </div>
 
           {activeView !== "corner" && (
@@ -150,7 +242,6 @@ export default function Dashboard() {
           margin: 0;
         }
 
-        /* ===== PAGE SHELL ===== */
         .dashboard-page {
           min-height: 100vh;
           height: 100%;
@@ -162,90 +253,34 @@ export default function Dashboard() {
           position: relative;
         }
 
-        .dashboard-page.sidebar-open .dashboard-header {
-          margin-left: var(--sidebar-w-open);
-          width: calc(100% - var(--sidebar-w-open));
-        }
-        .dashboard-page.sidebar-closed .dashboard-header {
-          margin-left: var(--sidebar-w-closed);
-          width: calc(100% - var(--sidebar-w-closed));
-        }
-
-        /* ===== HEADER ===== */
         .dashboard-header {
           height: var(--header-h);
           flex-shrink: 0;
           position: relative;
           z-index: 10;
+          width: 100%;
         }
 
-        /* ===== MOBILE SIDEBAR OVERLAY ===== */
-        .mobile-sidebar-overlay {
-          display: none;
-        }
-
-        /* ===== LAYOUT GRID ===== */
         .dashboard-layout {
           display: grid;
           flex: 1;
+          grid-template-columns: minmax(0, 1fr) var(--right-w);
           grid-template-rows: 1fr;
-          grid-auto-rows: 1fr;
           height: 100%;
-          min-height: 0; /* key for nested scroll */
+          min-height: 0;
           width: 100%;
           gap: 16px;
           padding: 16px;
           position: relative;
-          z-index: auto;
-          overflow: hidden; /* no scroll on grid itself */
-          transition:
-            grid-template-columns var(--motion-base) var(--motion-ease),
-            margin-left var(--motion-base) var(--motion-ease);
+          overflow: hidden;
           align-items: stretch;
           justify-items: stretch;
         }
 
-        .dashboard-layout.sidebar-open {
-          grid-template-columns: minmax(0, 1fr) var(--right-w);
-          margin-left: var(--sidebar-w-open);
-          width: calc(100% - var(--sidebar-w-open));
-        }
-        .dashboard-layout.sidebar-closed {
-          grid-template-columns: minmax(0, 1fr) var(--right-w);
-          margin-left: var(--sidebar-w-closed);
-          width: calc(100% - var(--sidebar-w-closed));
-        }
-        .dashboard-layout.sidebar-open.no-right {
+        .dashboard-layout.no-right {
           grid-template-columns: minmax(0, 1fr);
-          margin-left: var(--sidebar-w-open);
-          width: calc(100% - var(--sidebar-w-open));
-        }
-        .dashboard-layout.sidebar-closed.no-right {
-          grid-template-columns: minmax(0, 1fr);
-          margin-left: var(--sidebar-w-closed);
-          width: calc(100% - var(--sidebar-w-closed));
         }
 
-        /* --- Sidebar column --- */
-        .sidebar-col {
-          position: fixed;
-          top: 0;
-          left: 0;
-          height: 100vh;
-          min-height: 100vh;
-          overflow: visible;
-          z-index: 120;
-          display: flex;
-          flex-direction: column;
-        }
-        .dashboard-layout.sidebar-open .sidebar-col {
-          width: var(--sidebar-w-open);
-        }
-        .dashboard-layout.sidebar-closed .sidebar-col {
-          width: var(--sidebar-w-closed);
-        }
-
-        /* --- Center scroll wrapper --- */
         .center-scroll-wrapper {
           display: flex;
           flex: 1;
@@ -262,13 +297,12 @@ export default function Dashboard() {
           min-width: 0;
           overflow-y: auto;
           overflow-x: hidden;
-          padding-right: 6px; /* room for scrollbar */
+          padding-right: 6px;
           display: flex;
           flex-direction: column;
           gap: 18px;
         }
 
-        /* hide default scrollbar, use a thin custom one */
         .center-column::-webkit-scrollbar {
           width: 5px;
         }
@@ -283,11 +317,6 @@ export default function Dashboard() {
           background: rgba(242, 101, 34, 0.42);
         }
 
-        .scroll-spacer {
-          display: none;
-        } /* reserved if needed later */
-
-        /* --- Right column --- */
         .right-col {
           height: 100%;
           min-height: 0;
@@ -301,7 +330,6 @@ export default function Dashboard() {
           width: 0;
         }
 
-        /* ===== GLASS CARD ===== */
         .glass-card {
           background: var(--bg-card);
           backdrop-filter: blur(16px);
@@ -317,7 +345,6 @@ export default function Dashboard() {
           box-shadow: var(--shadow-md);
         }
 
-        /* ===== MOBILE RESPONSIVE ===== */
         @media (max-width: 768px) {
           .dashboard-page {
             min-height: 100dvh;
@@ -329,33 +356,12 @@ export default function Dashboard() {
             flex: 0 0 58px;
           }
 
-          /* Overlay backdrop */
-          .mobile-sidebar-overlay {
-            display: block;
-            position: fixed;
-            inset: 0;
-            background: rgba(15, 23, 42, 0.4);
-            backdrop-filter: blur(4px);
-            z-index: 99;
-            animation: fadeIn 0.2s ease;
-          }
-          @keyframes fadeIn {
-            from {
-              opacity: 0;
-            }
-            to {
-              opacity: 1;
-            }
-          }
-
-          /* Switch to single column — no sidebar, no right panel in grid */
-          .dashboard-layout.sidebar-open,
-          .dashboard-layout.sidebar-closed {
+          .dashboard-layout,
+          .dashboard-layout.no-right {
             grid-template-columns: 1fr;
             grid-template-rows: 1fr;
             gap: 0;
             padding: 8px;
-            margin-left: 0;
             width: 100%;
             max-width: 100%;
             height: calc(100dvh - 58px);
@@ -364,44 +370,13 @@ export default function Dashboard() {
             overflow: hidden;
           }
 
-          .dashboard-page.sidebar-open .dashboard-header,
-          .dashboard-page.sidebar-closed .dashboard-header {
-            margin-left: 0;
-            width: 100%;
-          }
-
-          /* Hide sidebar from flow, show as overlay when mobile-open */
-          .sidebar-col {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 260px;
-            height: 100vh;
-            z-index: 100;
-            padding: 14px;
-            background: var(--bg-page);
-          }
-          .sidebar-col.mobile-open {
-            display: block;
-            animation: slideInLeft 0.25s ease;
-          }
-          @keyframes slideInLeft {
-            from {
-              transform: translateX(-100%);
-            }
-            to {
-              transform: translateX(0);
-            }
-          }
-
-          /* Center content takes full width */
           .center-scroll-wrapper {
             width: 100%;
             min-width: 0;
             height: 100%;
             max-height: 100%;
             overflow: hidden;
+            padding-right: 0;
           }
           .center-column {
             width: 100%;
@@ -415,20 +390,9 @@ export default function Dashboard() {
             overflow-x: hidden;
           }
 
-          /* Right panel stacks below center content */
           .right-col {
             height: auto;
             overflow: visible;
-          }
-        }
-
-        /* Tablet breakpoint */
-        @media (min-width: 769px) and (max-width: 1024px) {
-          .dashboard-layout.sidebar-open.no-right {
-            grid-template-columns: var(--sidebar-w-open) minmax(0, 1fr);
-          }
-          .dashboard-layout.sidebar-closed.no-right {
-            grid-template-columns: var(--sidebar-w-closed) minmax(0, 1fr);
           }
         }
 
@@ -440,7 +404,6 @@ export default function Dashboard() {
             transition: none !important;
           }
         }
-
       `}</style>
     </>
   );

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { canManagePortal } from "@/app/lib/permissions";
 
 type PortalContentItem = {
   contentId: number;
@@ -29,8 +30,12 @@ type ValueModal = {
   displayOrder: string;
 };
 
-export default function PortalContent() {
-  const [isHr, setIsHr] = useState(false);
+type PortalContentProps = {
+  onBack?: () => void;
+};
+
+export default function PortalContent({ onBack }: PortalContentProps) {
+  const [allowed, setAllowed] = useState(false);
   const [roleChecked, setRoleChecked] = useState(false);
   const [mission, setMission] = useState<PortalContentItem | null>(null);
   const [vision, setVision] = useState<PortalContentItem | null>(null);
@@ -48,12 +53,9 @@ export default function PortalContent() {
       try {
         const r = await fetch("/api/me");
         const d = await r.json().catch(() => ({}));
-        const hr = Array.isArray(d?.roles)
-          ? d.roles.some((role: string) => String(role).toLowerCase() === "hr")
-          : false;
-        setIsHr(hr);
+        setAllowed(canManagePortal(d?.roles));
       } catch {
-        setIsHr(false);
+        setAllowed(false);
       } finally {
         setRoleChecked(true);
       }
@@ -78,8 +80,8 @@ export default function PortalContent() {
   }
 
   useEffect(() => {
-    if (isHr) loadContent();
-  }, [isHr]);
+    if (allowed) loadContent();
+  }, [allowed]);
 
   async function saveContent() {
     if (!contentModal) return;
@@ -107,7 +109,7 @@ export default function PortalContent() {
         }),
       });
       const d = await r.json().catch(() => ({}));
-      if (r.status === 403) throw new Error("Only HR can edit portal content.");
+      if (r.status === 403) throw new Error("Only HR or Marketing can edit portal content.");
       if (!r.ok) throw new Error(d?.error || "Unable to save content.");
       await loadContent();
       setContentModal(null);
@@ -150,7 +152,7 @@ export default function PortalContent() {
         body: JSON.stringify(payload),
       });
       const d = await r.json().catch(() => ({}));
-      if (r.status === 403) throw new Error("Only HR can edit portal content.");
+      if (r.status === 403) throw new Error("Only HR or Marketing can edit portal content.");
       if (!r.ok) throw new Error(d?.error || "Unable to save value.");
       await loadContent();
       setValueModal(null);
@@ -172,7 +174,7 @@ export default function PortalContent() {
         body: JSON.stringify({ valueId: deleteValue.valueId }),
       });
       const d = await r.json().catch(() => ({}));
-      if (r.status === 403) throw new Error("Only HR can edit portal content.");
+      if (r.status === 403) throw new Error("Only HR or Marketing can edit portal content.");
       if (!r.ok) throw new Error(d?.error || "Unable to delete value.");
       await loadContent();
       setDeleteValue(null);
@@ -185,7 +187,7 @@ export default function PortalContent() {
 
   if (!roleChecked) return null;
 
-  if (!isHr) {
+  if (!allowed) {
     return (
       <div className="pc-wrap">
         <div className="pc-card">
@@ -200,10 +202,16 @@ export default function PortalContent() {
     <div className="pc-wrap">
       <div className="pc-header">
         <div>
-          <p className="pc-kicker">HR only</p>
+          <p className="pc-kicker">Manage Portal</p>
           <h2 className="pc-title">Portal Content</h2>
           <p className="pc-sub">Edit Mission, Vision, and Values shown on the homepage.</p>
         </div>
+        {onBack && (
+          <button type="button" className="pc-back" onClick={onBack}>
+            <span className="pc-back-icon" aria-hidden>←</span>
+            Back
+          </button>
+        )}
       </div>
 
       {error && <p className="pc-error">{error}</p>}
@@ -402,6 +410,41 @@ export default function PortalContent() {
 
 const styles = `
   .pc-wrap { display: flex; flex-direction: column; gap: 16px; }
+  .pc-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+  }
+  .pc-back {
+    appearance: none;
+    border: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--ad-orange);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 700;
+    padding: 10px 18px;
+    border-radius: 999px;
+    cursor: pointer;
+    flex-shrink: 0;
+    box-shadow: 0 4px 14px rgba(242, 101, 34, 0.28);
+    transition: transform 180ms ease, box-shadow 180ms ease, filter 180ms ease;
+  }
+  .pc-back:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 18px rgba(242, 101, 34, 0.35);
+    filter: brightness(1.03);
+  }
+  .pc-back:active {
+    transform: translateY(0);
+  }
+  .pc-back-icon {
+    font-size: 15px;
+    line-height: 1;
+  }
   .pc-kicker {
     margin: 0 0 4px;
     font-size: 11px;

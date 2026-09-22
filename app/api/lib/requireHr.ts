@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { RowDataPacket } from "mysql2";
 import pool from "@/config/db";
+import { canManagePortal, normalizeRole } from "@/app/lib/permissions";
 
-const HR_ROLE_ID = 6;
+type AuthSuccess = { userId: number; roles: string[] };
+type AuthResult = AuthSuccess | { error: NextResponse };
 
-export async function requireHrUser(
+async function resolveUserRoles(
   req: NextRequest,
-): Promise<{ userId: number } | { error: NextResponse }> {
+): Promise<AuthResult> {
   const token = req.cookies.get("access_token")?.value;
   if (!token) {
     return {
@@ -38,24 +40,67 @@ export async function requireHrUser(
 
     const userId = Number(userRows[0].userid);
     const [roleRows] = await pool.execute<RowDataPacket[]>(
-      "SELECT role_id FROM user_roles WHERE userid = ?",
+      `
+      SELECT r.role_name
+      FROM user_roles ur
+      JOIN roles r ON ur.role_id = r.role_id
+      WHERE ur.userid = ?
+      `,
       [userId],
     );
 
-    const isHr = roleRows.some((row) => Number(row.role_id) === HR_ROLE_ID);
-    if (!isHr) {
-      return {
-        error: NextResponse.json(
-          { error: "Only HR can perform this action" },
-          { status: 403 },
-        ),
-      };
-    }
+    const roles = [
+      ...new Set(
+        roleRows.map((row) => normalizeRole(row.role_name)).filter(Boolean),
+      ),
+    ];
 
-    return { userId };
+    return { userId, roles };
   } catch {
     return {
       error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
     };
   }
+}
+
+/** HR-only actions (e.g. create events). */
+export async function requireHrUser(
+  req: NextRequest,
+): Promise<{ userId: number } | { error: NextResponse }> {
+  const auth = await resolveUserRoles(req);
+  if ("error" in auth) return auth;
+
+  const isHr = auth.roles.some((role) => role === "hr");
+  if (!isHr) {
+    return {
+      error: NextResponse.json(
+        { error: "Only HR can perform this action" },
+        { status: 403 },
+      ),
+    };
+  }
+
+  return { userId: auth.userId };
+}
+
+/**
+ * Portal Content + Article Management.
+ * Allowed for HR and Marketing (role_name from roles table).
+ */
+export async function requirePortalManager(
+  req: NextRequest,
+): Promise<{ userId: number } | { error: NextResponse }> {
+  const auth = await resolveUserRoles(req);
+  if ("error" in auth) return auth;
+
+  if (!canManagePortal(auth.roles)) {
+    return {
+      error: NextResponse.json(
+        { error: "Only HR or Marketing can perform this action" },
+        { status: 403 },
+      ),
+    };
+  }
+
+  return { userId: auth.userId };
 }

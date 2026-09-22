@@ -3,6 +3,7 @@ import pool from "@/config/db";
 import { randomUUID } from "crypto";
 import { writeFile, mkdir } from "fs/promises";
 import { join } from "path";
+import { ensureNotificationsTable } from "@/app/api/notifications/helpers";
 
 export async function POST(req: NextRequest) {
   try {
@@ -18,7 +19,7 @@ export async function POST(req: NextRequest) {
 
     // 🔥 Get userId from DB
     const [userRows]: any = await pool.execute(
-      "SELECT userid FROM users WHERE keycloak_id = ?",
+      "SELECT userid, username FROM users WHERE keycloak_id = ?",
       [keycloakId]
     );
 
@@ -27,6 +28,7 @@ export async function POST(req: NextRequest) {
     }
 
     const userid = userRows[0].userid;
+    const username = userRows[0].username;
 
     // Parse FormData
     const formData = await req.formData();
@@ -50,6 +52,45 @@ export async function POST(req: NextRequest) {
        VALUES (?, ?, ?, ?, ?)`,
       [postId, userid, systemCategory, title || null, content]
     );
+
+    // ✅ Create notifications for other employees (exclude author)
+    await ensureNotificationsTable();
+    const [eligibleUsers]: any = await pool.execute(
+      `SELECT DISTINCT u.userid
+       FROM users u
+       JOIN user_roles ur ON ur.userid = u.userid
+       WHERE u.userid <> ?`,
+      [userid],
+    );
+
+    const trimmedContent = content.trim();
+    const contentSnippet =
+      trimmedContent.length > 80
+        ? `${trimmedContent.slice(0, 80).trimEnd()}...`
+        : trimmedContent;
+    const notificationTitle = `New post from ${username}`;
+    const notificationMessage = title?.trim()
+      ? `\"${title.trim()}\"`
+      : `\"${contentSnippet}\"`;
+
+    for (const receiver of eligibleUsers) {
+      await pool.execute(
+        `INSERT INTO notifications
+         (id, user_id, type, title, message, entity_type, entity_id, action_url, created_by)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          randomUUID(),
+          Number(receiver.userid),
+          "employee_corner_post",
+          notificationTitle,
+          notificationMessage,
+          "ec_post",
+          postId,
+          `/webpage?view=corner&postId=${postId}`,
+          userid,
+        ],
+      );
+    }
 
     // ✅ Handle image uploads (if any)
     if (files && files.length > 0) {

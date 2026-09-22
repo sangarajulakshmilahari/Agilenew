@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { ResultSetHeader, RowDataPacket } from "mysql2";
 import pool from "@/config/db";
-import { requireHrUser } from "@/app/api/lib/requireHr";
+import { requirePortalManager } from "@/app/api/lib/requireHr";
 
 type ValueRow = RowDataPacket & {
   ValueId: number;
@@ -26,7 +26,7 @@ function parseBody(raw: unknown) {
 }
 
 export async function POST(req: NextRequest) {
-  const auth = await requireHrUser(req);
+  const auth = await requirePortalManager(req);
   if ("error" in auth) return auth.error;
 
   try {
@@ -96,7 +96,7 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
-  const auth = await requireHrUser(req);
+  const auth = await requirePortalManager(req);
   if ("error" in auth) return auth.error;
 
   try {
@@ -180,7 +180,7 @@ export async function PUT(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  const auth = await requireHrUser(req);
+  const auth = await requirePortalManager(req);
   if ("error" in auth) return auth.error;
 
   try {

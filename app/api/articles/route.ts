@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { ResultSetHeader } from "mysql2";
 import pool from "@/config/db";
-import { requireHrUser } from "@/app/api/lib/requireHr";
+import { requirePortalManager } from "@/app/api/lib/requireHr";
+import { notifyArticlePublished } from "@/app/api/notifications/helpers";
 import {
   mapArticle,
   normalizeStatus,
@@ -19,7 +20,7 @@ export async function GET(req: NextRequest) {
     const wantAll = req.nextUrl.searchParams.get("all") === "1";
 
     if (wantAll) {
-      const auth = await requireHrUser(req);
+      const auth = await requirePortalManager(req);
       if ("error" in auth) return auth.error;
     }
 
@@ -42,7 +43,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const auth = await requireHrUser(req);
+  const auth = await requirePortalManager(req);
   if ("error" in auth) return auth.error;
 
   try {
@@ -91,6 +92,14 @@ export async function POST(req: NextRequest) {
       `SELECT ${SELECT_FIELDS} FROM articles WHERE ArticleId = ? LIMIT 1`,
       [result.insertId],
     );
+
+    if (status === "Published") {
+      await notifyArticlePublished({
+        authorUserId: auth.userId,
+        title,
+        articleId: Number(result.insertId),
+      });
+    }
 
     return NextResponse.json({ article: mapArticle(createdRows[0]) }, { status: 201 });
   } catch (err) {
