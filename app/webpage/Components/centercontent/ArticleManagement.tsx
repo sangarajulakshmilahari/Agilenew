@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { canManagePortal } from "@/app/lib/permissions";
 
 type Article = {
   articleId: number;
@@ -31,8 +32,12 @@ const emptyForm = (): ArticleForm => ({
   file: null,
 });
 
-export default function ArticleManagement() {
-  const [isHr, setIsHr] = useState(false);
+type ArticleManagementProps = {
+  onBack?: () => void;
+};
+
+export default function ArticleManagement({ onBack }: ArticleManagementProps) {
+  const [allowed, setAllowed] = useState(false);
   const [roleChecked, setRoleChecked] = useState(false);
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
@@ -47,12 +52,9 @@ export default function ArticleManagement() {
       try {
         const r = await fetch("/api/me");
         const d = await r.json().catch(() => ({}));
-        setIsHr(
-          Array.isArray(d?.roles) &&
-            d.roles.some((role: string) => String(role).toLowerCase() === "hr"),
-        );
+        setAllowed(canManagePortal(d?.roles));
       } catch {
-        setIsHr(false);
+        setAllowed(false);
       } finally {
         setRoleChecked(true);
       }
@@ -65,7 +67,7 @@ export default function ArticleManagement() {
       setError("");
       const r = await fetch("/api/articles?all=1", { cache: "no-store" });
       const d = await r.json().catch(() => ({}));
-      if (r.status === 403) throw new Error("Only HR can manage articles.");
+      if (r.status === 403) throw new Error("Only HR or Marketing can manage articles.");
       if (!r.ok) throw new Error(d?.error || "Unable to load articles.");
       setArticles(Array.isArray(d?.articles) ? d.articles : []);
     } catch (err: any) {
@@ -76,8 +78,8 @@ export default function ArticleManagement() {
   }
 
   useEffect(() => {
-    if (isHr) loadArticles();
-  }, [isHr]);
+    if (allowed) loadArticles();
+  }, [allowed]);
 
   function openCreate() {
     setModalError("");
@@ -136,7 +138,7 @@ export default function ArticleManagement() {
         body,
       });
       const d = await r.json().catch(() => ({}));
-      if (r.status === 403) throw new Error("Only HR can manage articles.");
+      if (r.status === 403) throw new Error("Only HR or Marketing can manage articles.");
       if (!r.ok) throw new Error(d?.error || "Unable to save article.");
       await loadArticles();
       setForm(null);
@@ -158,7 +160,7 @@ export default function ArticleManagement() {
         body,
       });
       const d = await r.json().catch(() => ({}));
-      if (r.status === 403) throw new Error("Only HR can manage articles.");
+      if (r.status === 403) throw new Error("Only HR or Marketing can manage articles.");
       if (!r.ok) throw new Error(d?.error || "Unable to update article.");
       await loadArticles();
     } catch (err: any) {
@@ -177,7 +179,7 @@ export default function ArticleManagement() {
         method: "DELETE",
       });
       const d = await r.json().catch(() => ({}));
-      if (r.status === 403) throw new Error("Only HR can manage articles.");
+      if (r.status === 403) throw new Error("Only HR or Marketing can manage articles.");
       if (!r.ok) throw new Error(d?.error || "Unable to delete article.");
       await loadArticles();
       setDeleteArticle(null);
@@ -190,7 +192,7 @@ export default function ArticleManagement() {
 
   if (!roleChecked) return null;
 
-  if (!isHr) {
+  if (!allowed) {
     return (
       <div className="am-wrap">
         <div className="am-card">
@@ -205,11 +207,19 @@ export default function ArticleManagement() {
     <div className="am-wrap">
       <div className="am-header">
         <div>
-          <p className="am-kicker">HR only</p>
+          <p className="am-kicker">Manage Portal</p>
           <h2 className="am-title">Article Management</h2>
           <p className="am-sub">Create, publish, and manage featured articles.</p>
         </div>
-        <button className="am-btn" type="button" onClick={openCreate}>Add article</button>
+        <div className="am-header-actions">
+          {onBack && (
+            <button type="button" className="am-back" onClick={onBack}>
+              <span className="am-back-icon" aria-hidden>←</span>
+              Back
+            </button>
+          )}
+          <button className="am-btn" type="button" onClick={openCreate}>Add article</button>
+        </div>
       </div>
 
       {error && <p className="am-error">{error}</p>}
@@ -348,6 +358,41 @@ export default function ArticleManagement() {
 const styles = `
   .am-wrap { display: flex; flex-direction: column; gap: 16px; }
   .am-header { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; }
+  .am-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+  .am-back {
+    appearance: none;
+    border: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--ad-orange);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 700;
+    padding: 10px 18px;
+    border-radius: 999px;
+    cursor: pointer;
+    flex-shrink: 0;
+    box-shadow: 0 4px 14px rgba(242, 101, 34, 0.28);
+    transition: transform 180ms ease, box-shadow 180ms ease, filter 180ms ease;
+  }
+  .am-back:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 18px rgba(242, 101, 34, 0.35);
+    filter: brightness(1.03);
+  }
+  .am-back:active {
+    transform: translateY(0);
+  }
+  .am-back-icon {
+    font-size: 15px;
+    line-height: 1;
+  }
   .am-kicker {
     margin: 0 0 4px;
     font-size: 11px;

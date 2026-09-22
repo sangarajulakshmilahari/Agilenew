@@ -255,7 +255,11 @@ const Avatar = ({
 
 /* ═══════════════════ MAIN COMPONENT ═══════════════════ */
 
-export default function EmployeeCorner() {
+type EmployeeCornerProps = {
+  highlightedPostId?: string | null;
+};
+
+export default function EmployeeCorner({ highlightedPostId = null }: EmployeeCornerProps) {
   const [posts, setPosts] = useState<Post[]>([]);
   const [feedFilter, setFeedFilter] = useState<FeedFilterKey>("recent");
   const [composing, setComposing] = useState(false);
@@ -280,6 +284,10 @@ export default function EmployeeCorner() {
   const postMenuButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const [deletePostId, setDeletePostId] = useState<string | null>(null);
   const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
+  const postCardRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const [activeHighlightedPostId, setActiveHighlightedPostId] = useState<string | null>(
+    null,
+  );
 
   const getInitials = (name: string) => {
     return name
@@ -397,6 +405,24 @@ export default function EmployeeCorner() {
   useEffect(() => {
     fetchPosts(feedFilter);
   }, [feedFilter]);
+
+  useEffect(() => {
+    if (!highlightedPostId || posts.length === 0) return;
+
+    const target = postCardRefs.current[highlightedPostId];
+    if (!target) return;
+
+    target.scrollIntoView({ behavior: "smooth", block: "center" });
+    setActiveHighlightedPostId(highlightedPostId);
+
+    const timer = window.setTimeout(() => {
+      setActiveHighlightedPostId((prev) =>
+        prev === highlightedPostId ? null : prev,
+      );
+    }, 2600);
+
+    return () => window.clearTimeout(timer);
+  }, [highlightedPostId, posts]);
 
   const fetchPosts = async (mode: FeedFilterKey = feedFilter) => {
     const res = await fetch(`/api/ec/posts/feed?mode=${FEED_MODE_QUERY_MAP[mode]}`);
@@ -1053,7 +1079,15 @@ export default function EmployeeCorner() {
                 post.authorName === user?.username || canModerateAnyPost;
 
               return (
-                <div key={post.id} className="ec-card">
+                <div
+                  key={post.id}
+                  className={`ec-card ${
+                    activeHighlightedPostId === post.id ? "ec-highlighted-post" : ""
+                  }`}
+                  ref={(el) => {
+                    postCardRefs.current[post.id] = el;
+                  }}
+                >
                 <div className="post-header">
                   <Avatar
                     initials={post.initials}
@@ -1605,6 +1639,23 @@ export default function EmployeeCorner() {
           box-shadow:
             0 4px 12px rgba(0, 0, 0, 0.08),
             0 1px 3px rgba(0, 0, 0, 0.06);
+        }
+        .ec-highlighted-post {
+          border-color: rgba(242, 101, 34, 0.6);
+          box-shadow:
+            0 0 0 3px rgba(242, 101, 34, 0.16),
+            0 8px 22px rgba(31, 58, 104, 0.12);
+          animation: ecPulseHighlight 1.3s ease;
+        }
+        @keyframes ecPulseHighlight {
+          0% {
+            box-shadow: 0 0 0 0 rgba(242, 101, 34, 0.35);
+          }
+          100% {
+            box-shadow:
+              0 0 0 3px rgba(242, 101, 34, 0.16),
+              0 8px 22px rgba(31, 58, 104, 0.12);
+          }
         }
         .ec-panel {
           background: white;

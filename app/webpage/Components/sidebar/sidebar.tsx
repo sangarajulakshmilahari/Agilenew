@@ -10,11 +10,10 @@ import {
   faChevronLeft,
   faChevronRight,
   faCalendarCheck,
-  faPenToSquare,
-  faFilePen,
 } from "@fortawesome/free-solid-svg-icons";
 import { faLinkedin } from "@fortawesome/free-brands-svg-icons";
-import { faUsers } from "@fortawesome/free-solid-svg-icons";
+import { faUsers, faGear } from "@fortawesome/free-solid-svg-icons";
+import { canManagePortal } from "@/app/lib/permissions";
 
 type SidebarView =
   | "home"
@@ -23,6 +22,7 @@ type SidebarView =
   | "learning"
   | "articles"
   | "corner"
+  | "managePortal"
   | "portal"
   | "articleManage";
 
@@ -44,7 +44,7 @@ export default function Sidebar({
   setOpen,
 }: SidebarProps) {
   const expanded = open || mobileOpen;
-  const [isHr, setIsHr] = useState(false);
+  const [showManagePortal, setShowManagePortal] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -52,10 +52,7 @@ export default function Sidebar({
         const r = await fetch("/api/me");
         if (!r.ok) return;
         const d = await r.json();
-        setIsHr(
-          Array.isArray(d?.roles) &&
-            d.roles.some((role: string) => String(role).toLowerCase() === "hr"),
-        );
+        setShowManagePortal(canManagePortal(d?.roles));
       } catch {}
     })();
   }, []);
@@ -97,19 +94,13 @@ export default function Sidebar({
       label: "Employee Corner",
       onClick: () => onChange("corner"),
     },
-    ...(isHr
+    ...(showManagePortal
       ? [
           {
-            key: "portal" as const,
-            icon: faPenToSquare,
-            label: "Portal Content",
-            onClick: () => onChange("portal"),
-          },
-          {
-            key: "articleManage" as const,
-            icon: faFilePen,
-            label: "Article Management",
-            onClick: () => onChange("articleManage"),
+            key: "managePortal" as const,
+            icon: faGear,
+            label: "Manage Portal",
+            onClick: () => onChange("managePortal"),
           },
         ]
       : []),
@@ -143,7 +134,10 @@ export default function Sidebar({
         <nav className="nav-section">
           <ul>
             {menuItems.map((item, i) => {
-              const isActive = activeView === item.key;
+              const isActive =
+                activeView === item.key ||
+                (item.key === "managePortal" &&
+                  (activeView === "portal" || activeView === "articleManage"));
               return (
                 <li
                   key={i}

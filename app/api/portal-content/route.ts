@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { ResultSetHeader, RowDataPacket } from "mysql2";
 import pool from "@/config/db";
-import { requireHrUser } from "@/app/api/lib/requireHr";
+import { requirePortalManager } from "@/app/api/lib/requireHr";
 
 type ContentRow = RowDataPacket & {
   ContentId: number;
@@ -72,7 +72,7 @@ export async function GET() {
 }
 
 export async function PUT(req: NextRequest) {
-  const auth = await requireHrUser(req);
+  const auth = await requirePortalManager(req);
   if ("error" in auth) return auth.error;
 
   try {

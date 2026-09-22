@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { ResultSetHeader } from "mysql2";
 import pool from "@/config/db";
-import { requireHrUser } from "@/app/api/lib/requireHr";
+import { requirePortalManager } from "@/app/api/lib/requireHr";
+import { notifyArticlePublished } from "@/app/api/notifications/helpers";
 import {
   mapArticle,
   normalizeStatus,
@@ -18,7 +19,7 @@ const SELECT_FIELDS = `
 type RouteContext = { params: { id: string } };
 
 export async function PUT(req: NextRequest, { params }: RouteContext) {
-  const auth = await requireHrUser(req);
+  const auth = await requirePortalManager(req);
   if ("error" in auth) return auth.error;
 
   const articleId = parseArticleId(params.id);
@@ -93,6 +94,15 @@ export async function PUT(req: NextRequest, { params }: RouteContext) {
       [title, summary, content, coverImage, status, auth.userId, articleId],
     );
 
+    const becamePublished = existing.Status !== "Published" && status === "Published";
+    if (becamePublished) {
+      await notifyArticlePublished({
+        authorUserId: auth.userId,
+        title,
+        articleId,
+      });
+    }
+
     const [updatedRows] = await pool.execute<ArticleRow[]>(
       `SELECT ${SELECT_FIELDS} FROM articles WHERE ArticleId = ? LIMIT 1`,
       [articleId],
@@ -109,7 +119,7 @@ export async function PUT(req: NextRequest, { params }: RouteContext) {
 }
 
 export async function DELETE(req: NextRequest, { params }: RouteContext) {
-  const auth = await requireHrUser(req);
+  const auth = await requirePortalManager(req);
   if ("error" in auth) return auth.error;
 
   const articleId = parseArticleId(params.id);

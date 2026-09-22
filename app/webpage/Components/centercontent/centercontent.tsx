@@ -6,6 +6,7 @@ import EmployeeCorner from "./EmployeeCorner";
 import PortalContent from "./PortalContent";
 import FeaturedArticles from "./FeaturedArticles";
 import ArticleManagement from "./ArticleManagement";
+import ManagePortal from "./ManagePortal";
 
 type AppItem = {
   name: string;
@@ -16,16 +17,22 @@ type AppItem = {
   url?: string;
   isAI?: boolean;
 };
+
+type CenterView =
+  | "home"
+  | "holiday"
+  | "events"
+  | "learning"
+  | "articles"
+  | "corner"
+  | "managePortal"
+  | "portal"
+  | "articleManage";
+
 type CenterContentProps = {
-  activeView:
-    | "home"
-    | "holiday"
-    | "events"
-    | "learning"
-    | "articles"
-    | "corner"
-    | "portal"
-    | "articleManage";
+  activeView: CenterView;
+  highlightedPostId?: string | null;
+  onChangeView?: (view: CenterView) => void;
 };
 const apps: AppItem[] = [
   {
@@ -126,7 +133,11 @@ type PortalValue = {
   displayOrder: number;
 };
 
-export default function CenterContent({ activeView }: CenterContentProps) {
+export default function CenterContent({
+  activeView,
+  highlightedPostId,
+  onChangeView,
+}: CenterContentProps) {
   const [allowedApps, setAllowedApps] = useState<string[]>([]);
   const [mission, setMission] = useState<PortalContentItem | null>(null);
   const [vision, setVision] = useState<PortalContentItem | null>(null);
@@ -200,9 +211,26 @@ export default function CenterContent({ activeView }: CenterContentProps) {
   if (activeView === "events") return <ComingSoon page="Events" />;
   if (activeView === "learning") return <ComingSoon page="Learning & Dev" />;
   if (activeView === "articles") return <FeaturedArticles />;
-  if (activeView === "corner") return <EmployeeCorner />;
-  if (activeView === "portal") return <PortalContent />;
-  if (activeView === "articleManage") return <ArticleManagement />;
+  if (activeView === "corner") {
+    return <EmployeeCorner highlightedPostId={highlightedPostId ?? null} />;
+  }
+  if (activeView === "managePortal") {
+    return (
+      <ManagePortal
+        onNavigate={(view) => onChangeView?.(view)}
+      />
+    );
+  }
+  if (activeView === "portal") {
+    return (
+      <PortalContent onBack={() => onChangeView?.("managePortal")} />
+    );
+  }
+  if (activeView === "articleManage") {
+    return (
+      <ArticleManagement onBack={() => onChangeView?.("managePortal")} />
+    );
+  }
 
   const openAppByName = (name: string) => {
     const target = apps.find((a) => a.name === name);
