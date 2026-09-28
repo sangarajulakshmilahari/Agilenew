@@ -67,7 +67,7 @@ export default function ArticleManagement({ onBack }: ArticleManagementProps) {
       setError("");
       const r = await fetch("/api/articles?all=1", { cache: "no-store" });
       const d = await r.json().catch(() => ({}));
-      if (r.status === 403) throw new Error("Only HR or Marketing can manage articles.");
+      if (r.status === 403) throw new Error("Only HR or Sales/Marketing can manage articles.");
       if (!r.ok) throw new Error(d?.error || "Unable to load articles.");
       setArticles(Array.isArray(d?.articles) ? d.articles : []);
     } catch (err: any) {
@@ -138,7 +138,7 @@ export default function ArticleManagement({ onBack }: ArticleManagementProps) {
         body,
       });
       const d = await r.json().catch(() => ({}));
-      if (r.status === 403) throw new Error("Only HR or Marketing can manage articles.");
+      if (r.status === 403) throw new Error("Only HR or Sales/Marketing can manage articles.");
       if (!r.ok) throw new Error(d?.error || "Unable to save article.");
       await loadArticles();
       setForm(null);
@@ -160,7 +160,7 @@ export default function ArticleManagement({ onBack }: ArticleManagementProps) {
         body,
       });
       const d = await r.json().catch(() => ({}));
-      if (r.status === 403) throw new Error("Only HR or Marketing can manage articles.");
+      if (r.status === 403) throw new Error("Only HR or Sales/Marketing can manage articles.");
       if (!r.ok) throw new Error(d?.error || "Unable to update article.");
       await loadArticles();
     } catch (err: any) {
@@ -179,7 +179,7 @@ export default function ArticleManagement({ onBack }: ArticleManagementProps) {
         method: "DELETE",
       });
       const d = await r.json().catch(() => ({}));
-      if (r.status === 403) throw new Error("Only HR or Marketing can manage articles.");
+      if (r.status === 403) throw new Error("Only HR or Sales/Marketing can manage articles.");
       if (!r.ok) throw new Error(d?.error || "Unable to delete article.");
       await loadArticles();
       setDeleteArticle(null);

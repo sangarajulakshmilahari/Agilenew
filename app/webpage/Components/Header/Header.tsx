@@ -320,7 +320,10 @@ export default function Header({ activeView, onChange }: HeaderProps) {
 
             {notificationsOpen && (
               <div className="notification-dropdown" role="dialog" aria-label="Notifications">
-                <div className="notification-head">🔔 Notifications</div>
+                <div className="notification-head">
+                  <Bell size={15} />
+                  Notifications
+                </div>
                 <div className="notification-subhead">
                   {unreadCount} pending {unreadCount === 1 ? "action" : "actions"}
                 </div>
@@ -557,6 +560,9 @@ export default function Header({ activeView, onChange }: HeaderProps) {
         }
 
         .notification-head {
+          display: flex;
+          align-items: center;
+          gap: 8px;
           font-size: 14px;
           font-weight: 700;
           color: #0f1f3d;
