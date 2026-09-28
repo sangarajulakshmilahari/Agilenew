@@ -6,7 +6,7 @@ export async function GET() {
     `/protocol/openid-connect/logout` +
     `?client_id=${process.env.KEYCLOAK_CLIENT_ID}` +
     `&post_logout_redirect_uri=${encodeURIComponent(
-      "http://localhost:3000/api/auth/login",
+      "http://agilesourcing.adroitent.ai/api/auth/login",
     )}`;
 
   const res = NextResponse.redirect(keycloakLogoutUrl);
