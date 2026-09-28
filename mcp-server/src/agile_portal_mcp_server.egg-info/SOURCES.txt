@@ -1,0 +1,16 @@
+README.md
+pyproject.toml
+src/agile_portal_mcp_server.egg-info/PKG-INFO
+src/agile_portal_mcp_server.egg-info/SOURCES.txt
+src/agile_portal_mcp_server.egg-info/dependency_links.txt
+src/agile_portal_mcp_server.egg-info/requires.txt
+src/agile_portal_mcp_server.egg-info/top_level.txt
+src/portal_mcp/__init__.py
+src/portal_mcp/config.py
+src/portal_mcp/db.py
+src/portal_mcp/main.py
+src/portal_mcp/repository.py
+src/portal_mcp/server.py
+src/portal_mcp/tools.py
+tests/test_db.py
+tests/test_tools_and_server.py
