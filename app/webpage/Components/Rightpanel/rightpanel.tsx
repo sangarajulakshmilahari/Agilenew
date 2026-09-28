@@ -3,6 +3,7 @@ import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Cake, PartyPopper, Gift, X, Mail } from "lucide-react";
+import { canCreateEvent as hasEventCreateAccess } from "@/app/lib/permissions";
 
 export default function RightPanel() {
   type Birthday = {
@@ -115,9 +116,7 @@ export default function RightPanel() {
     selectedFile.size > 0 &&
     selectedFile.size <= MAX_PHOTO_SIZE;
 
-  const canCreateEvent = Array.isArray(user?.roles)
-    ? user.roles.some((role) => String(role).toLowerCase() === "hr")
-    : false;
+  const canCreateEvent = hasEventCreateAccess(user?.roles);
 
   function openLightboxBySrc(src: string) {
     if (!src || eventImages.length === 0) return;
@@ -271,7 +270,7 @@ export default function RightPanel() {
   async function handleCreateEvent() {
     if (!canCreateEvent) {
       setCreateEventMode(false);
-      setModalError("Only HR can create events.");
+      setModalError("Only HR or Sales/Marketing can create events.");
       return;
     }
 

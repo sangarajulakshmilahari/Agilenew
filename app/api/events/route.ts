@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { ResultSetHeader, RowDataPacket } from "mysql2";
 import pool from "@/config/db";
+import { canCreateEvent } from "@/app/lib/permissions";
 
 type EventRow = RowDataPacket & {
   EventId: number;
@@ -102,10 +103,10 @@ export async function POST(req: NextRequest) {
       [userId],
     );
 
-    const isHr = roleRows.some((row) => String(row.role_name) === "hr");
-    if (!isHr) {
+    const roles = roleRows.map((row) => String(row.role_name));
+    if (!canCreateEvent(roles)) {
       return NextResponse.json(
-        { error: "Only HR can create events" },
+        { error: "Only HR or Sales/Marketing can create events" },
         { status: 403 },
       );
     }

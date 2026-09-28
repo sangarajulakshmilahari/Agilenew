@@ -2,6 +2,18 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Getting Started
 
+### Environment Variables
+
+Create [` .env.local `](agilenext/.env.local) and configure the assistant variables (do not commit real secrets):
+
+```bash
+GROQ_API_KEY=your_groq_api_key_here
+GROQ_MODEL=openai/gpt-oss-120b
+PORTAL_MCP_URL=http://127.0.0.1:8031/mcp
+```
+
+The assistant backend route [`POST /api/assistant`](agilenext/app/api/assistant/route.ts:63) reads only these server-side values. [`PORTAL_MCP_URL`](agilenext/README.md:12) must point to the running Portal MCP server streamable HTTP endpoint.
+
 First, run the development server:
 
 ```bash

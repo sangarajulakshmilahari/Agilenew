@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { RowDataPacket } from "mysql2";
 import pool from "@/config/db";
-import { canManagePortal, normalizeRole } from "@/app/lib/permissions";
+import { canCreateEvent, canManagePortal, normalizeRole } from "@/app/lib/permissions";
 
 type AuthSuccess = { userId: number; roles: string[] };
 type AuthResult = AuthSuccess | { error: NextResponse };
@@ -63,18 +63,17 @@ async function resolveUserRoles(
   }
 }
 
-/** HR-only actions (e.g. create events). */
+/** Event creation. Allowed for HR and Sales/Marketing. */
 export async function requireHrUser(
   req: NextRequest,
 ): Promise<{ userId: number } | { error: NextResponse }> {
   const auth = await resolveUserRoles(req);
   if ("error" in auth) return auth;
 
-  const isHr = auth.roles.some((role) => role === "hr");
-  if (!isHr) {
+  if (!canCreateEvent(auth.roles)) {
     return {
       error: NextResponse.json(
-        { error: "Only HR can perform this action" },
+        { error: "Only HR or Sales/Marketing can perform this action" },
         { status: 403 },
       ),
     };
@@ -85,7 +84,7 @@ export async function requireHrUser(
 
 /**
  * Portal Content + Article Management.
- * Allowed for HR and Marketing (role_name from roles table).
+ * Allowed for HR and Sales/Marketing (role_name from roles table).
  */
 export async function requirePortalManager(
   req: NextRequest,
@@ -96,7 +95,7 @@ export async function requirePortalManager(
   if (!canManagePortal(auth.roles)) {
     return {
       error: NextResponse.json(
-        { error: "Only HR or Marketing can perform this action" },
+        { error: "Only HR or Sales/Marketing can perform this action" },
         { status: 403 },
       ),
     };

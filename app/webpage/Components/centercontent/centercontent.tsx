@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Holidaycalender from "../centercontent/Holidaycalender";
 import ComingSoon from "./comingsoon";
 import EmployeeCorner from "./EmployeeCorner";
@@ -7,6 +8,8 @@ import PortalContent from "./PortalContent";
 import FeaturedArticles from "./FeaturedArticles";
 import ArticleManagement from "./ArticleManagement";
 import ManagePortal from "./ManagePortal";
+import AssistantRichContent from "./AssistantRichContent";
+import type { AssistantBlock } from "@/app/lib/assistantBlocks";
 
 type AppItem = {
   name: string;
@@ -16,6 +19,17 @@ type AppItem = {
   hoverDescription: string;
   url?: string;
   isAI?: boolean;
+  displayOrder?: number;
+};
+
+type BackendApp = {
+  id?: number;
+  name?: string;
+  description?: string;
+  hoverDescription?: string;
+  url?: string;
+  isAI?: boolean;
+  displayOrder?: number;
 };
 
 type CenterView =
@@ -33,92 +47,26 @@ type CenterContentProps = {
   activeView: CenterView;
   highlightedPostId?: string | null;
   onChangeView?: (view: CenterView) => void;
+  onAssistantOpenChange?: (open: boolean) => void;
 };
-const apps: AppItem[] = [
-  {
-    name: "AATMA",
-    description: "Talent Management System",
-    icon: "/icons/aatma_icon.svg",
-    hoverDescription: "Adroitent Advanced Talent Management System",
-    bg: "#1F3A68",
-    url: "http://202.153.39.93:8092/",
-  },
-  {
-    name: "AHDAR",
-    description: "Help Desk",
-    hoverDescription: "Adroitent Helpdesk Application Request",
-    icon: "/icons/help_desk_icon.svg",
-    bg: "#1F3A68",
-    url: "http://202.153.39.93:8085/ticket/",
-  },
-  {
-    name: "AARNA",
-    description: "Invoicing System",
-    hoverDescription: "Adroitent Advanced Revenue Navigation System",
-    icon: "/icons/droit_icon.svg",
-    bg: "#1F3A68",
-    url: "http://aarna.adroitent.ai/Home/Index",
-  },
-  {
-    name: "DEVAILEY",
-    description: "AI Software Engineering",
-    hoverDescription: "Agentic AI Software Engineering Platform",
-    icon: "/icons/devalley_icon.svg",
-    bg: "#1F3A68",
-    url: "http://202.153.39.93:7067/",
-    isAI: true,
-  },
-  {
-    name: "AARAM",
-    description: "Leave & Attendance",
-    hoverDescription: "Adroitent Absence Request and Attendance Management",
-    icon: "/icons/aaram_icon.svg",
-    bg: "#1F3A68",
-    url: "http://aaram.adroitent.ai",
-  },
-  {
-    name: "ACARSH",
-    description: "Sales CRM",
-    hoverDescription:
-      "Adroitent Customer Acquisition and Relationship Management",
-    icon: "/icons/knowledge_portal_icon.svg",
-    bg: "#1F3A68",
-    url: "http://acarsh.adroitent.ai/webpage",
-  },
-  {
-    name: "DROIT",
-    description: "AI Engineering Platform",
-    hoverDescription: "Deploying Robust AI for Optimization and Transformation",
-    icon: "/icons/code_gen_icon.svg",
-    bg: "#1F3A68",
-    url: "http://droit.adroitent.ai:7081/login",
-    isAI: true,
-  },
-  {
-    name: "AAPTA",
-    description: "Talent Referral Portal",
-    hoverDescription: "Adroitent Associate Portal for Talent Referral",
-    icon: "/icons/code_gen_icon.svg",
-    bg: "#1F3A68",
-    url: "https://aapta.adroitent.ai/",
-  },
-  {
-    name: "TALENTALIGN",
-    description: "AI Talent Sourcing",
-    hoverDescription: "Agentic AI Talent Sourcing Platform",
-    icon: "/icons/code_gen_icon.svg",
-    bg: "#1F3A68",
-    url: "http://talentalign.ai/",
-  },
-  {
-    name: "DELIVERY METRICS",
-    description: "AI Delivery Metrics",
-    hoverDescription: "Agentic AI Delivery Metrics Platform",
-    icon: "/icons/code_gen_icon.svg",
-    bg: "#1F3A68",
-    url: "http://13.127.101.147:8010/",
-  },
-];
+const APP_STYLE: Record<string, { icon: string; bg: string }> = {
+  AATMA: { icon: "/icons/aatma_icon.svg", bg: "#1F3A68" },
+  AHDAR: { icon: "/icons/help_desk_icon.svg", bg: "#1F3A68" },
+  AARNA: { icon: "/icons/droit_icon.svg", bg: "#1F3A68" },
+  DEVAILEY: { icon: "/icons/devalley_icon.svg", bg: "#1F3A68" },
+  AARAM: { icon: "/icons/aaram_icon.svg", bg: "#1F3A68" },
+  ACARSH: { icon: "/icons/knowledge_portal_icon.svg", bg: "#1F3A68" },
+  DROIT: { icon: "/icons/code_gen_icon.svg", bg: "#1F3A68" },
+  AAPTA: { icon: "/icons/code_gen_icon.svg", bg: "#1F3A68" },
+  TALENTALIGN: { icon: "/icons/code_gen_icon.svg", bg: "#1F3A68" },
+  "DELIVERY METRICS": { icon: "/icons/code_gen_icon.svg", bg: "#1F3A68" },
+};
+
+const DEFAULT_APP_STYLE = { icon: "/icons/code_gen_icon.svg", bg: "#1F3A68" };
+
+function styleForApp(name: string) {
+  return APP_STYLE[name.toUpperCase()] || DEFAULT_APP_STYLE;
+}
 
 type PortalContentItem = {
   contentId: number;
@@ -133,17 +81,55 @@ type PortalValue = {
   displayOrder: number;
 };
 
+type AssistantMessage = {
+  id: string;
+  role: "user" | "assistant";
+  text: string;
+  blocks?: AssistantBlock[];
+};
+
+function AssistantMark() {
+  return (
+    <span className="assistant-mark" aria-hidden="true">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+        <path
+          d="M12 3l1.2 4.8L18 9l-4.8 1.2L12 15l-1.2-4.8L6 9l4.8-1.2L12 3z"
+          fill="#06B6D4"
+        />
+        <path d="M18.5 14.5l.7 2.3 2.3.7-2.3.7-.7 2.3-.7-2.3-2.3-.7 2.3-.7.7-2.3z" fill="#F26522" />
+      </svg>
+    </span>
+  );
+}
+
+function greetingForNow() {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 17) return "Good afternoon";
+  return "Good evening";
+}
+
 export default function CenterContent({
   activeView,
   highlightedPostId,
   onChangeView,
+  onAssistantOpenChange,
 }: CenterContentProps) {
-  const [allowedApps, setAllowedApps] = useState<string[]>([]);
+  const [allowedApps, setAllowedApps] = useState<AppItem[]>([]);
   const [mission, setMission] = useState<PortalContentItem | null>(null);
   const [vision, setVision] = useState<PortalContentItem | null>(null);
   const [portalValues, setPortalValues] = useState<PortalValue[]>([]);
   const [portalContentLoading, setPortalContentLoading] = useState(true);
   const [portalContentError, setPortalContentError] = useState("");
+  const [heroInput, setHeroInput] = useState("");
+  const [assistantInput, setAssistantInput] = useState("");
+  const [assistantOpen, setAssistantOpen] = useState(false);
+  const [assistantLoading, setAssistantLoading] = useState(false);
+  const [assistantMessages, setAssistantMessages] = useState<AssistantMessage[]>([]);
+  const [assistantMinimized, setAssistantMinimized] = useState(false);
+  const [employeeName, setEmployeeName] = useState("Employee");
+  const [panelSlot, setPanelSlot] = useState<HTMLElement | null>(null);
+  const conversationEndRef = useRef<HTMLDivElement | null>(null);
   const slides = ["mission", "vision"] as const;
   type SlideType = (typeof slides)[number];
   const [activeSlide, setActiveSlide] = useState<SlideType>("mission");
@@ -181,10 +167,50 @@ export default function CenterContent({
         const r = await fetch("/api/me");
         if (!r.ok) return;
         const d = await r.json();
-        setAllowedApps(d.apps || []);
+        const catalog = Array.isArray(d.applications) ? (d.applications as BackendApp[]) : [];
+        setAllowedApps(
+          catalog
+            .map((app) => {
+              const name = String(app.name || "").trim();
+              if (!name) return null;
+              const style = styleForApp(name);
+              return {
+                name,
+                description: String(app.description || "").trim(),
+                hoverDescription: String(app.hoverDescription || "").trim(),
+                url: String(app.url || "").trim() || undefined,
+                isAI: Boolean(app.isAI),
+                displayOrder: Number(app.displayOrder || 0),
+                icon: style.icon,
+                bg: style.bg,
+              } as AppItem;
+            })
+            .filter((app): app is AppItem => Boolean(app)),
+        );
+        const fullName =
+          String(d?.name || d?.fullName || d?.displayName || d?.username || "").trim();
+        const firstName = fullName.split(" ")[0]?.trim();
+        if (firstName) setEmployeeName(firstName);
       } catch {}
     })();
   }, []);
+
+  useEffect(() => {
+    onAssistantOpenChange?.(activeView === "home" && assistantOpen && !assistantMinimized);
+  }, [activeView, assistantOpen, assistantMinimized, onAssistantOpenChange]);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    setPanelSlot(document.getElementById("assistant-panel-slot"));
+  }, [assistantOpen, assistantMinimized, activeView]);
+
+  useEffect(() => {
+    if (!assistantOpen || assistantMinimized) return;
+    const id = window.setTimeout(() => {
+      conversationEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    }, 10);
+    return () => window.clearTimeout(id);
+  }, [assistantMessages, assistantLoading, assistantOpen, assistantMinimized]);
 
   useEffect(() => {
     (async () => {
@@ -232,27 +258,198 @@ export default function CenterContent({
     );
   }
 
-  const openAppByName = (name: string) => {
-    const target = apps.find((a) => a.name === name);
-    if (target?.url) window.open(target.url, "_blank");
+  const submitAssistantPrompt = async (rawPrompt: string) => {
+    const text = rawPrompt.trim();
+    if (!text || assistantLoading) return;
+
+    setAssistantOpen(true);
+    setAssistantMinimized(false);
+    onAssistantOpenChange?.(true);
+    setAssistantLoading(true);
+
+    setAssistantMessages((prev) => [
+      ...prev,
+      {
+        id: `${Date.now()}-user`,
+        role: "user",
+        text,
+      },
+    ]);
+
+    try {
+      const response = await fetch("/api/assistant", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: text }),
+      });
+
+      const data = (await response.json().catch(() => ({}))) as {
+        success?: boolean;
+        message?: string;
+        intent?: string;
+        error?: string;
+        blocks?: AssistantBlock[];
+      };
+
+      if (!response.ok || !data?.success) {
+        throw new Error(data?.error || "Unable to process your request right now.");
+      }
+
+      const assistantText = String(data.message || "I received your request.");
+      const blocks = Array.isArray(data.blocks) ? data.blocks : [];
+
+      setAssistantMessages((prev) => [
+        ...prev,
+        {
+          id: `${Date.now()}-assistant`,
+          role: "assistant",
+          text: assistantText,
+          blocks,
+        },
+      ]);
+    } catch (error) {
+      const message = error instanceof Error
+        ? error.message
+        : "Unable to process your request right now.";
+
+      setAssistantMessages((prev) => [
+        ...prev,
+        {
+          id: `${Date.now()}-assistant-error`,
+          role: "assistant",
+          text: `Sorry, ${message}`,
+        },
+      ]);
+    } finally {
+      setAssistantLoading(false);
+    }
   };
+
+  const closeAssistantPanel = () => {
+    setAssistantOpen(false);
+    setAssistantMinimized(false);
+    setAssistantLoading(false);
+    onAssistantOpenChange?.(false);
+  };
+
+  const assistantPanel = (
+        <div
+          className="assistant-dock"
+          role="region"
+          aria-label="Employee Assistant conversation"
+        >
+          <div className="assistant-head">
+            <div className="assistant-head-identity">
+              <AssistantMark />
+              <div>
+                <h4 className="assistant-head-title">Employee Assistant</h4>
+                <p className="assistant-head-label">AI-powered help for your workplace</p>
+              </div>
+            </div>
+            <div className="assistant-actions">
+              <button
+                className="assistant-head-btn"
+                type="button"
+                onClick={() => {
+                  setAssistantMinimized(true);
+                  onAssistantOpenChange?.(false);
+                }}
+              >
+                Minimize
+              </button>
+              <button
+                className="assistant-head-btn danger"
+                type="button"
+                aria-label="Close assistant"
+                onClick={closeAssistantPanel}
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+
+          <div className="ai-conversation">
+            {assistantMessages.map((message) => (
+              <div
+                key={message.id}
+                className={`ai-row ${message.role === "user" ? "user" : "assistant"}`}
+              >
+                {message.role === "assistant" && <AssistantMark />}
+                <div className={`ai-msg ${message.role === "user" ? "user" : "assistant"}`}>
+                  {message.role === "user" ? (
+                    <p>{message.text}</p>
+                  ) : (
+                    <AssistantRichContent
+                      text={message.text}
+                      blocks={message.blocks}
+                      onNavigate={onChangeView}
+                    />
+                  )}
+                </div>
+              </div>
+            ))}
+
+            {assistantLoading && (
+              <div className="ai-row assistant" aria-live="polite">
+                <AssistantMark />
+                <div className="ai-msg assistant loading">
+                  <p>
+                    <span className="loading-dots">Thinking</span>
+                  </p>
+                </div>
+              </div>
+            )}
+
+            <div ref={conversationEndRef} />
+          </div>
+
+          <form
+            className="assistant-inputbar"
+            onSubmit={(event) => {
+              event.preventDefault();
+              const value = assistantInput;
+              setAssistantInput("");
+              submitAssistantPrompt(value);
+            }}
+          >
+            <input
+              type="text"
+              value={assistantInput}
+              onChange={(event) => setAssistantInput(event.target.value)}
+              placeholder="Ask a follow-up question..."
+              className="assistant-input"
+              aria-label="Follow-up prompt"
+              disabled={assistantLoading}
+            />
+            <button
+              type="submit"
+              className="assistant-send"
+              aria-label="Send follow-up"
+              disabled={assistantLoading || !assistantInput.trim()}
+            >
+              →
+            </button>
+          </form>
+        </div>
+  );
 
   return (
     <div className="center-wrapper">
       {/* ======== QUICK CONSOLE (AI band — the one place cyan appears) ======== */}
       <div className="ai-band">
         <div className="ai-top">
-          {/* <span className="ai-tag">
-            <span className="dot" />
-            Quick console
-          </span> */}
+          <p className="ai-kicker">EMPLOYEE AI ASSISTANT</p>
+          <h3 className="ai-heading">{greetingForNow()}, {employeeName}. What can I help you with today?</h3>
         </div>
-        <p className="ai-brief">
-          Jump straight into what you need — apply for leave, raise a
-          ticket, or open any of your <strong>{allowedApps.length}</strong>{" "}
-          applications below.
-        </p>
-        <div className="omni">
+        <form
+          className="omni"
+          onSubmit={(event) => {
+            event.preventDefault();
+            const value = heroInput;
+            setHeroInput("");
+            submitAssistantPrompt(value);
+          }}
+        >
           <svg
             className="ic"
             viewBox="0 0 24 24"
@@ -263,25 +460,42 @@ export default function CenterContent({
             <circle cx="11" cy="11" r="7" />
             <path d="M20 20l-4-4" />
           </svg>
-          <span>Search applications, policies, or people</span>
-        </div>
-        <div className="chips">
+          <input
+            type="text"
+            value={heroInput}
+            onChange={(event) => setHeroInput(event.target.value)}
+            placeholder="Ask anything or get something done..."
+            className="omni-input"
+            aria-label="Employee AI Assistant input"
+            disabled={assistantLoading}
+          />
           <button
-            className="chip"
-            onClick={() =>
-              window.open("https://aaram.adroitent.ai/apply_leave", "_blank")
-            }
+            type="submit"
+            className="omni-submit"
+            disabled={assistantLoading || !heroInput.trim()}
           >
-            Apply for leave
+            {assistantLoading ? "Thinking..." : "Ask"}
           </button>
-          <button className="chip" onClick={() => openAppByName("AHDAR")}>
-            Raise a ticket
+        </form>
+
+        {assistantMinimized && assistantMessages.length > 0 && (
+          <button
+            className="assistant-resume"
+            type="button"
+            onClick={() => {
+              setAssistantOpen(true);
+              setAssistantMinimized(false);
+              onAssistantOpenChange?.(true);
+            }}
+          >
+            Resume conversation
           </button>
-          <button className="chip" onClick={() => openAppByName("AAPTA")}>
-            Refer a candidate
-          </button>
-        </div>
+        )}
       </div>
+
+      {assistantOpen && !assistantMinimized && (
+        panelSlot ? createPortal(assistantPanel, panelSlot) : assistantPanel
+      )}
 
       {/* ======== APPLICATIONS ======== */}
       <div className="apps-section">
@@ -302,10 +516,7 @@ export default function CenterContent({
         </div>
 
         <div className="app-grid">
-          {apps
-            .filter((a) => allowedApps.includes(a.name))
-            .sort((a, b) => (a.isAI ? 1 : 0) - (b.isAI ? 1 : 0))
-            .map((app, i) => (
+          {allowedApps.map((app, i) => (
               <div
                 className={`app-card ${app.isAI ? "app-card-ai" : ""}`}
                 key={app.name}
@@ -412,26 +623,48 @@ export default function CenterContent({
         .ai-band {
           border-radius: 16px;
           padding: 24px 28px;
-          background: linear-gradient(155deg, var(--ad-navy) 0%, var(--ad-ai-navy) 100%);
+          background-color: #0E2248;
           color: #ffffff;
           position: relative;
           overflow: hidden;
         }
-        .ai-band::after {
+        .ai-band::before {
           content: "";
           position: absolute;
-          top: -70px;
-          right: -70px;
-          width: 240px;
-          height: 240px;
-          border-radius: 50%;
-          background: radial-gradient(circle, rgba(6, 182, 212, 0.18), transparent 70%);
+          top: 0;
+          right: 0;
+          bottom: 0;
+          width: 52%;
+          background-image:
+            linear-gradient(rgba(148, 187, 232, 0.11) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(148, 187, 232, 0.11) 1px, transparent 1px);
+          background-size: 36px 36px;
+          background-position: -1px -1px;
+          -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 28%);
+          mask-image: linear-gradient(to right, transparent 0%, #000 28%);
           pointer-events: none;
         }
         .ai-top {
           position: relative;
           z-index: 1;
           margin-bottom: 10px;
+        }
+        .ai-kicker {
+          margin: 0 0 8px;
+          font-size: 11px;
+          font-weight: 700;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          color: var(--ad-ai-cyan);
+        }
+        .ai-heading {
+          margin: 0;
+          font-size: 23px;
+          line-height: 1.2;
+          font-weight: 700;
+          letter-spacing: 0.01em;
+          color: #ffffff;
+          max-width: 58%;
         }
         .ai-tag {
           display: inline-flex;
@@ -466,6 +699,7 @@ export default function CenterContent({
           position: relative;
           z-index: 1;
           margin-top: 18px;
+          max-width: 58%;
           background: rgba(255, 255, 255, 0.07);
           border: 1px solid rgba(255, 255, 255, 0.14);
           border-radius: 10px;
@@ -477,11 +711,41 @@ export default function CenterContent({
           color: rgba(255, 255, 255, 0.55);
           cursor: text;
         }
+        .omni-input {
+          flex: 1;
+          min-width: 0;
+          border: none;
+          outline: none;
+          background: transparent;
+          color: #ffffff;
+          font-size: 13.5px;
+          font-family: inherit;
+        }
+        .omni-input::placeholder {
+          color: rgba(255, 255, 255, 0.62);
+        }
         .omni .ic {
           width: 15px;
           height: 15px;
           flex-shrink: 0;
           color: var(--ad-ai-cyan);
+        }
+        .omni-submit {
+          border: 1px solid rgba(255, 255, 255, 0.28);
+          background: rgba(255, 255, 255, 0.12);
+          color: #ffffff;
+          border-radius: 8px;
+          font-size: 12px;
+          padding: 6px 10px;
+          cursor: pointer;
+          transition: background 0.2s ease;
+        }
+        .omni-submit:hover:enabled {
+          background: rgba(255, 255, 255, 0.2);
+        }
+        .omni-submit:disabled {
+          opacity: 0.55;
+          cursor: not-allowed;
         }
         .chips {
           position: relative;
@@ -490,6 +754,7 @@ export default function CenterContent({
           gap: 8px;
           flex-wrap: wrap;
           margin-top: 12px;
+          max-width: 58%;
         }
         .chip {
           font-family: inherit;
@@ -505,6 +770,20 @@ export default function CenterContent({
         }
         .chip:hover {
           background: rgba(255, 255, 255, 0.16);
+        }
+        .legacy-chips {
+          margin-top: 8px;
+        }
+        .assistant-resume {
+          margin-top: 12px;
+          border: 1px solid rgba(255, 255, 255, 0.28);
+          background: rgba(255, 255, 255, 0.14);
+          color: #ffffff;
+          border-radius: 10px;
+          font-size: 12px;
+          font-weight: 600;
+          padding: 9px 12px;
+          cursor: pointer;
         }
 
         /* ======== PURPOSE / MISSION / VISION ROTATOR ======== */
@@ -963,7 +1242,20 @@ export default function CenterContent({
         @media (max-width: 560px) {
           .center-wrapper { gap: 12px; }
           .ai-band { padding: 18px 18px; }
+          .ai-band::before { width: 100%; }
+          .ai-heading,
+          .omni,
+          .chips { max-width: 100%; }
+          .ai-heading { font-size: 19px; }
           .ai-brief { font-size: 14px; }
+          .omni {
+            padding: 10px 11px;
+            gap: 8px;
+          }
+          .omni-submit {
+            padding: 6px 8px;
+            font-size: 11px;
+          }
           .values-grid-static { grid-template-columns: 1fr; gap: 8px; }
 
           /* Apps section mobile */
@@ -1011,6 +1303,243 @@ export default function CenterContent({
           }
           .app-info p {
             line-height: 1.35;
+          }
+        }
+
+      `}</style>
+      <style jsx global>{`
+        .assistant-dock {
+          position: relative;
+          width: 100%;
+          height: 100%;
+          min-height: 0;
+          z-index: 20;
+          border-radius: 18px;
+          border: 1px solid #E2E8F0;
+          background: #ffffff;
+          box-shadow: 0 18px 36px rgba(15, 23, 42, 0.12);
+          display: flex;
+          flex-direction: column;
+          overflow: hidden;
+        }
+        .assistant-head {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 10px;
+          padding: 16px 16px 14px;
+          border-bottom: 1px solid #E2E8F0;
+          background: #ffffff;
+          flex-shrink: 0;
+        }
+        .assistant-head-identity {
+          display: flex;
+          align-items: flex-start;
+          gap: 10px;
+          min-width: 0;
+        }
+        .assistant-mark {
+          width: 32px;
+          height: 32px;
+          border-radius: 10px;
+          background: rgba(6, 182, 212, 0.12);
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+        }
+        .assistant-head-title {
+          margin: 0;
+          font-size: 16px;
+          line-height: 1.2;
+          color: #1F3A68;
+          font-weight: 700;
+        }
+        .assistant-head-label {
+          margin: 4px 0 0;
+          font-size: 12px;
+          color: #64748b;
+          font-weight: 500;
+          text-transform: none;
+          letter-spacing: 0;
+        }
+        .assistant-actions {
+          display: inline-flex;
+          gap: 8px;
+          flex-shrink: 0;
+        }
+        .assistant-head-btn {
+          border: 1px solid #E2E8F0;
+          background: #f8fafc;
+          color: #1F3A68;
+          border-radius: 8px;
+          padding: 7px 10px;
+          font-size: 12px;
+          font-weight: 600;
+          cursor: pointer;
+        }
+        .assistant-head-btn.danger {
+          border-color: rgba(242, 101, 34, 0.42);
+          color: #F26522;
+          background: #fff7ed;
+          min-width: 32px;
+        }
+        .assistant-dock .ai-conversation {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          flex: 1;
+          min-height: 0;
+          overflow-y: auto;
+          padding: 16px;
+          background: #F8FAFC;
+        }
+        .assistant-dock .ai-row {
+          display: flex;
+          align-items: flex-end;
+          gap: 8px;
+        }
+        .assistant-dock .ai-row.user {
+          justify-content: flex-end;
+        }
+        .assistant-dock .ai-msg {
+          max-width: 84%;
+          padding: 10px 12px;
+          border-radius: 14px;
+          border: 1px solid transparent;
+          line-height: 1.45;
+        }
+        .assistant-dock .ai-msg.user {
+          background: rgba(6, 182, 212, 0.16);
+          color: #1F3A68;
+          border-color: rgba(6, 182, 212, 0.22);
+          border-top-right-radius: 4px;
+        }
+        .assistant-dock .ai-msg.assistant {
+          background: #ffffff;
+          color: #0f172a;
+          border-color: #E2E8F0;
+          border-top-left-radius: 4px;
+        }
+        .assistant-dock .ai-msg p {
+          margin: 0 0 6px;
+          font-size: 13px;
+        }
+        .assistant-dock .ai-msg p:last-child {
+          margin-bottom: 0;
+        }
+        .assistant-dock .ai-msg ul {
+          margin: 0;
+          padding-left: 16px;
+          display: grid;
+          gap: 6px;
+          font-size: 13px;
+        }
+        .assistant-dock .ai-msg.loading p {
+          color: #334155;
+        }
+        .assistant-dock .loading-dots::after {
+          content: "";
+          display: inline-block;
+          width: 0;
+          overflow: hidden;
+          vertical-align: bottom;
+          animation: assistantDots 1.1s steps(3, end) infinite;
+        }
+        @keyframes assistantDots {
+          0% { width: 0; }
+          100% { width: 1.2em; }
+        }
+        .assistant-inputbar {
+          border-top: 1px solid #E2E8F0;
+          padding: 12px;
+          background: #ffffff;
+          display: flex;
+          gap: 8px;
+          position: sticky;
+          bottom: 0;
+          flex-shrink: 0;
+        }
+        .assistant-input {
+          flex: 1;
+          min-width: 0;
+          border: 1px solid #E2E8F0;
+          border-radius: 12px;
+          padding: 11px 14px;
+          font-size: 13px;
+          outline: none;
+          color: #0f172a;
+          background: #ffffff;
+        }
+        .assistant-input:focus {
+          border-color: #06B6D4;
+          box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.16);
+        }
+        .assistant-send {
+          border: none;
+          background: #F26522;
+          color: #ffffff;
+          border-radius: 12px;
+          font-size: 18px;
+          font-weight: 700;
+          min-width: 44px;
+          cursor: pointer;
+        }
+        .assistant-send:disabled {
+          cursor: not-allowed;
+          opacity: 0.55;
+        }
+        html[data-theme="dark"] .assistant-dock {
+          background: #0f172a;
+          border-color: #334155;
+        }
+        html[data-theme="dark"] .assistant-head,
+        html[data-theme="dark"] .assistant-inputbar {
+          background: #0f172a;
+          border-color: #334155;
+        }
+        html[data-theme="dark"] .assistant-head-title {
+          color: #e2e8f0;
+        }
+        html[data-theme="dark"] .assistant-head-label {
+          color: #94a3b8;
+        }
+        html[data-theme="dark"] .assistant-head-btn {
+          background: #1e293b;
+          border-color: #334155;
+          color: #e2e8f0;
+        }
+        html[data-theme="dark"] .assistant-dock .ai-conversation {
+          background: #0b1220;
+        }
+        html[data-theme="dark"] .assistant-dock .ai-msg.assistant {
+          background: #111827;
+          border-color: #334155;
+          color: #e2e8f0;
+        }
+        html[data-theme="dark"] .assistant-dock .ai-msg.user {
+          background: rgba(6, 182, 212, 0.18);
+          color: #e2e8f0;
+        }
+        html[data-theme="dark"] .assistant-input {
+          background: #111827;
+          border-color: #334155;
+          color: #e2e8f0;
+        }
+        @media (max-width: 768px) {
+          .assistant-dock {
+            position: fixed;
+            top: 58px;
+            left: 0;
+            right: 0;
+            width: 100vw;
+            min-width: 0;
+            height: calc(100dvh - 58px);
+            z-index: 40;
+            border-radius: 0;
+            border-left: none;
+            border-right: none;
+            border-bottom: none;
           }
         }
       `}</style>

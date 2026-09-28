@@ -109,7 +109,7 @@ export default function PortalContent({ onBack }: PortalContentProps) {
         }),
       });
       const d = await r.json().catch(() => ({}));
-      if (r.status === 403) throw new Error("Only HR or Marketing can edit portal content.");
+      if (r.status === 403) throw new Error("Only HR or Sales/Marketing can edit portal content.");
       if (!r.ok) throw new Error(d?.error || "Unable to save content.");
       await loadContent();
       setContentModal(null);
@@ -152,7 +152,7 @@ export default function PortalContent({ onBack }: PortalContentProps) {
         body: JSON.stringify(payload),
       });
       const d = await r.json().catch(() => ({}));
-      if (r.status === 403) throw new Error("Only HR or Marketing can edit portal content.");
+      if (r.status === 403) throw new Error("Only HR or Sales/Marketing can edit portal content.");
       if (!r.ok) throw new Error(d?.error || "Unable to save value.");
       await loadContent();
       setValueModal(null);
@@ -174,7 +174,7 @@ export default function PortalContent({ onBack }: PortalContentProps) {
         body: JSON.stringify({ valueId: deleteValue.valueId }),
       });
       const d = await r.json().catch(() => ({}));
-      if (r.status === 403) throw new Error("Only HR or Marketing can edit portal content.");
+      if (r.status === 403) throw new Error("Only HR or Sales/Marketing can edit portal content.");
       if (!r.ok) throw new Error(d?.error || "Unable to delete value.");
       await loadContent();
       setDeleteValue(null);

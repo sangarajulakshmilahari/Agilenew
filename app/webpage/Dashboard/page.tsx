@@ -117,6 +117,7 @@ export default function Dashboard() {
   const [highlightedPostId, setHighlightedPostId] = useState<string | null>(null);
   const [canManage, setCanManage] = useState(false);
   const [rolesReady, setRolesReady] = useState(false);
+  const [assistantPanelOpen, setAssistantPanelOpen] = useState(false);
 
   useEffect(() => {
     const id = window.setTimeout(() => setMounted(true), 0);
@@ -207,7 +208,7 @@ export default function Dashboard() {
         </div>
 
         <div
-          className={`dashboard-layout ${activeView === "corner" ? "no-right" : ""}`}
+          className={`dashboard-layout ${activeView === "corner" ? "no-right" : ""} ${assistantPanelOpen ? "assistant-open" : ""}`}
         >
           <div className="center-scroll-wrapper">
             <div className="center-column">
@@ -215,13 +216,14 @@ export default function Dashboard() {
                 activeView={activeView}
                 highlightedPostId={highlightedPostId}
                 onChangeView={handleViewChange}
+                onAssistantOpenChange={setAssistantPanelOpen}
               />
             </div>
           </div>
 
           {activeView !== "corner" && (
-            <div className="right-col">
-              <RightPanel />
+            <div className="right-col" id="assistant-panel-slot">
+              {!assistantPanelOpen && <RightPanel />}
             </div>
           )}
         </div>
@@ -279,6 +281,21 @@ export default function Dashboard() {
 
         .dashboard-layout.no-right {
           grid-template-columns: minmax(0, 1fr);
+        }
+
+        .dashboard-layout.assistant-open {
+          grid-template-columns: minmax(0, 1.65fr) minmax(360px, 0.95fr);
+        }
+
+        .dashboard-layout.assistant-open .right-col {
+          overflow: hidden;
+          min-width: 0;
+        }
+
+        .dashboard-layout.assistant-open .assistant-dock {
+          height: 100%;
+          min-height: 0;
+          flex: 1;
         }
 
         .center-scroll-wrapper {
@@ -357,7 +374,8 @@ export default function Dashboard() {
           }
 
           .dashboard-layout,
-          .dashboard-layout.no-right {
+          .dashboard-layout.no-right,
+          .dashboard-layout.assistant-open {
             grid-template-columns: 1fr;
             grid-template-rows: 1fr;
             gap: 0;
