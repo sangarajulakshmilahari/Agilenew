@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { ResultSetHeader } from "mysql2";
-import pool from "@/config/db";
+import {getPool} from "@/config/db";
 import { requirePortalManager } from "@/app/api/lib/requireHr";
 import { notifyArticlePublished } from "@/app/api/notifications/helpers";
 import {
@@ -28,6 +28,7 @@ export async function PUT(req: NextRequest, { params }: RouteContext) {
   }
 
   try {
+    const pool = await getPool();
     const [existingRows] = await pool.execute<ArticleRow[]>(
       `SELECT ${SELECT_FIELDS} FROM articles WHERE ArticleId = ? LIMIT 1`,
       [articleId],
@@ -127,6 +128,7 @@ export async function DELETE(req: NextRequest, { params }: RouteContext) {
     return NextResponse.json({ error: "Invalid article id" }, { status: 400 });
   }
 
+  const pool = await getPool();
   try {
     const [existingRows] = await pool.execute<ArticleRow[]>(
       "SELECT ArticleId FROM articles WHERE ArticleId = ? LIMIT 1",

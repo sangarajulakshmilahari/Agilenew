@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { mkdir, readdir, writeFile } from "fs/promises";
 import { join, extname } from "path";
 import type { ResultSetHeader, RowDataPacket } from "mysql2";
-import pool from "@/config/db";
+import {getPool} from "@/config/db";
 
 const EVENT_IMAGES_DIR = join(process.cwd(), "public", "Eventimages");
 const ALLOWED_EXTS = new Set([".png", ".jpg", ".jpeg", ".webp"]);
@@ -56,6 +56,7 @@ async function getAuthenticatedUserId(req: NextRequest): Promise<number | null> 
     const keycloakId = decoded?.sub;
     if (!keycloakId) return null;
 
+    const pool = await getPool();
     const [userRows] = await pool.execute<RowDataPacket[]>(
       "SELECT userid FROM users WHERE keycloak_id = ?",
       [keycloakId],
@@ -70,6 +71,7 @@ async function getAuthenticatedUserId(req: NextRequest): Promise<number | null> 
 
 export async function GET() {
   try {
+    const pool = await getPool();
     const [rows] = await pool.execute<EventPhotoJoinRow[]>(
       `
       SELECT
@@ -150,6 +152,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid eventId" }, { status: 400 });
     }
 
+    const pool = await getPool();
     const [eventRows] = await pool.execute<EventRow[]>(
       "SELECT EventId, IsActive FROM events WHERE EventId = ? LIMIT 1",
       [eventId],

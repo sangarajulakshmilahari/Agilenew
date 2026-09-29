@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { ResultSetHeader } from "mysql2";
-import pool from "@/config/db";
+import {getPool} from "@/config/db";
 import { requirePortalManager } from "@/app/api/lib/requireHr";
 import { notifyArticlePublished } from "@/app/api/notifications/helpers";
 import {
@@ -28,6 +28,7 @@ export async function GET(req: NextRequest) {
       ? `SELECT ${SELECT_FIELDS} FROM articles ORDER BY UpdatedAt DESC, ArticleId DESC`
       : `SELECT ${SELECT_FIELDS} FROM articles WHERE Status = 'Published' ORDER BY UpdatedAt DESC, ArticleId DESC`;
 
+    const pool = await getPool();
     const [rows] = await pool.execute<ArticleRow[]>(sql);
 
     return NextResponse.json({
@@ -79,6 +80,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    const pool = await getPool();
     const [result] = await pool.execute<ResultSetHeader>(
       `
       INSERT INTO articles

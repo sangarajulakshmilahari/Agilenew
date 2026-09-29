@@ -778,26 +778,25 @@ export default function RightPanel() {
 
       <style jsx>{`
         .right-panel {
-          width: var(--right-w, 340px);
-          max-width:  340px;
-          height: 100%;
+          width: 100%;
+          max-width: 100%;
+          min-width: 0;
+          height: auto;
+          min-height: 0;
           display: flex;
           flex-direction: column;
-          gap: 16px;
-          overflow-y: auto;
-          overflow-x: hidden;
+          gap: var(--sidebar-gap, 16px);
+          overflow: visible;
+          flex: 0 0 auto;
         }
-
-        @media (max-width: 1024px) {
-  .right-panel {
-    display: none;
-  }
-}
-        .right-panel::-webkit-scrollbar { width: 0; }
 
         .panel-card {
           position: relative;
-          padding: 18px;
+          flex: 0 0 auto;
+          width: 100%;
+          max-width: 100%;
+          min-width: 0;
+          padding: var(--sidebar-card-pad, 18px);
           border-radius: var(--radius-lg);
           border: 1px solid #e4ddd3;
           overflow: hidden;
@@ -837,8 +836,8 @@ export default function RightPanel() {
         .cd-orb-2 { width: 100px; height: 100px; background: rgba(31,58,104,0.12); bottom: -20px; left: -10px; animation: none; }
         @keyframes orbFloat { 0%,100% { transform: translate(0,0); } 50% { transform: translate(8px,6px); } }
 
-        .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; position: relative; z-index: 1; }
-        .card-header h3 { font-size: 15px; font-weight: 700; color: var(--text-primary); margin: 0; display: flex; align-items: center; gap: 7px; }
+        .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--sidebar-header-mb, 14px); position: relative; z-index: 1; gap: 8px; min-width: 0; }
+        .card-header h3 { font-size: 15px; font-weight: 700; color: var(--text-primary); margin: 0; display: flex; align-items: center; gap: 7px; min-width: 0; }
         .badge { font-size: 11px; font-weight: 600; color: var(--accent); background: var(--accent-light); padding: 4px 10px; border-radius: 999px; }
         .gallery-link {
           border: none;
@@ -863,7 +862,9 @@ export default function RightPanel() {
           z-index: 1;
           display: flex;
           flex-direction: column;
-          gap: 10px;
+          gap: var(--gallery-gap, 10px);
+          min-width: 0;
+          width: 100%;
         }
         .event-feature-tile,
         .event-mini-tile {
@@ -873,17 +874,24 @@ export default function RightPanel() {
           border: 1px solid #ece4d8;
           background: #f8f4ef;
           cursor: pointer;
+          flex-shrink: 0;
+          width: 100%;
+          min-width: 0;
         }
         .event-feature-tile {
-          height: 165px;
+          height: var(--gallery-feature-h, 165px);
+          min-height: 96px;
         }
         .event-subgrid {
           display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 10px;
+          grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+          gap: var(--gallery-gap, 10px);
+          width: 100%;
+          min-width: 0;
         }
         .event-mini-tile {
-          height: 80px;
+          height: var(--gallery-mini-h, 80px);
+          min-height: 56px;
         }
         .event-overlay {
           position: absolute;
@@ -915,6 +923,9 @@ export default function RightPanel() {
           font-weight: 700;
           color: #ffffff;
           line-height: 1.25;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
         }
         .event-meta {
           margin: 2px 0 0;
@@ -944,7 +955,15 @@ export default function RightPanel() {
           border: 1px solid rgba(255, 255, 255, 0.4);
         }
         .share-tile {
-          height: 44px;
+          flex: 0 0 auto;
+          flex-shrink: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 100%;
+          min-height: 44px;
+          height: auto;
+          padding: 10px 12px;
           border-radius: 10px;
           border: 1px dashed #d8cfc2;
           background: transparent;
@@ -953,6 +972,9 @@ export default function RightPanel() {
           font-weight: 700;
           cursor: pointer;
           transition: border-color 180ms ease, background 180ms ease;
+          white-space: normal;
+          text-align: center;
+          box-sizing: border-box;
         }
         .share-tile:hover {
           border-color: rgba(242, 101, 34, 0.5);
@@ -1071,6 +1093,11 @@ export default function RightPanel() {
         .wish-btn:hover { background: rgba(242,101,34,0.12); }
         .wish-btn :global(svg) { transition: transform 220ms ease; }
         .bday-row:hover .wish-btn :global(svg) { transform: rotate(-10deg); }
+
+        @media (max-height: 800px) {
+          .bday-list { gap: 8px; }
+          .bday-row { padding: 4px 10px; }
+        }
 
         :global(html[data-theme="dark"]) .panel-card {
           background: #123a78;
@@ -1356,16 +1383,16 @@ export default function RightPanel() {
           }
 
           .event-feature-tile {
-            height: 175px;
+            height: clamp(120px, 28vw, 175px);
           }
           .event-subgrid {
             gap: 8px;
           }
           .event-mini-tile {
-            height: 76px;
+            height: clamp(64px, 18vw, 76px);
           }
           .share-tile {
-            height: 42px;
+            min-height: 42px;
             font-size: 13px;
           }
           .lightbox-nav {

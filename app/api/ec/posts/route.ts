@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import pool from "@/config/db";
+import {getPool} from "@/config/db";
 import { randomUUID } from "crypto";
 import { writeFile, mkdir } from "fs/promises";
 import { join } from "path";
@@ -18,6 +18,7 @@ export async function POST(req: NextRequest) {
     const keycloakId = decoded.sub;
 
     // 🔥 Get userId from DB
+    const pool = await getPool();
     const [userRows]: any = await pool.execute(
       "SELECT userid, username FROM users WHERE keycloak_id = ?",
       [keycloakId]
@@ -143,6 +144,7 @@ export async function DELETE(req: NextRequest) {
     );
     const keycloakId = decoded.sub;
 
+    const pool = await getPool();
     const [userRows]: any = await pool.execute(
       "SELECT userid FROM users WHERE keycloak_id = ?",
       [keycloakId],

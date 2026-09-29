@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { ResultSetHeader, RowDataPacket } from "mysql2";
-import pool from "@/config/db";
+import {getPool} from "@/config/db";
 import { requirePortalManager } from "@/app/api/lib/requireHr";
 
 type ContentRow = RowDataPacket & {
@@ -27,6 +27,7 @@ function mapContent(row: ContentRow) {
 
 export async function GET() {
   try {
+    const pool = await getPool();
     const [contentRows] = await pool.execute<ContentRow[]>(
       `
       SELECT ContentId, ContentKey, Title, Content
@@ -112,6 +113,7 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: "Content is required" }, { status: 400 });
     }
 
+    const pool = await getPool();
     const [existingRows] = await pool.execute<ContentRow[]>(
       `
       SELECT ContentId, ContentKey, Title, Content

@@ -246,7 +246,9 @@ export default function Dashboard() {
 
         .dashboard-page {
           min-height: 100vh;
-          height: 100%;
+          min-height: 100dvh;
+          height: 100vh;
+          height: 100dvh;
           display: flex;
           flex-direction: column;
           overflow: hidden;
@@ -265,14 +267,14 @@ export default function Dashboard() {
 
         .dashboard-layout {
           display: grid;
-          flex: 1;
-          grid-template-columns: minmax(0, 1fr) var(--right-w);
-          grid-template-rows: 1fr;
-          height: 100%;
+          flex: 1 1 auto;
+          grid-template-columns: minmax(0, 1fr) minmax(0, var(--right-w));
+          grid-template-rows: minmax(0, 1fr);
           min-height: 0;
           width: 100%;
-          gap: 16px;
-          padding: 16px;
+          max-width: 100%;
+          gap: var(--layout-gap, 16px);
+          padding: var(--layout-pad, 16px);
           position: relative;
           overflow: hidden;
           align-items: stretch;
@@ -320,6 +322,12 @@ export default function Dashboard() {
           gap: 18px;
         }
 
+        @media (max-height: 800px) {
+          .center-column {
+            gap: 12px;
+          }
+        }
+
         .center-column::-webkit-scrollbar {
           width: 5px;
         }
@@ -335,16 +343,31 @@ export default function Dashboard() {
         }
 
         .right-col {
-          height: 100%;
+          min-width: 0;
           min-height: 0;
-          overflow-y: auto;
+          max-height: 100%;
           overflow-x: hidden;
+          overflow-y: auto;
+          overscroll-behavior: contain;
           display: flex;
           flex-direction: column;
           align-self: stretch;
+          -webkit-overflow-scrolling: touch;
+          scrollbar-width: thin;
+          scrollbar-color: rgba(31, 58, 104, 0.22) transparent;
         }
         .right-col::-webkit-scrollbar {
-          width: 0;
+          width: 5px;
+        }
+        .right-col::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .right-col::-webkit-scrollbar-thumb {
+          background: rgba(31, 58, 104, 0.22);
+          border-radius: 10px;
+        }
+        .right-col::-webkit-scrollbar-thumb:hover {
+          background: rgba(242, 101, 34, 0.42);
         }
 
         .glass-card {
@@ -362,6 +385,13 @@ export default function Dashboard() {
           box-shadow: var(--shadow-md);
         }
 
+        @media (max-width: 1024px) {
+          .dashboard-layout,
+          .dashboard-layout.assistant-open {
+            grid-template-columns: minmax(0, 1fr) minmax(220px, var(--right-w));
+          }
+        }
+
         @media (max-width: 768px) {
           .dashboard-page {
             min-height: 100dvh;
@@ -376,41 +406,47 @@ export default function Dashboard() {
           .dashboard-layout,
           .dashboard-layout.no-right,
           .dashboard-layout.assistant-open {
-            grid-template-columns: 1fr;
-            grid-template-rows: 1fr;
-            gap: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
             padding: 8px;
             width: 100%;
             max-width: 100%;
-            height: calc(100dvh - 58px);
-            min-height: calc(100dvh - 58px);
-            flex: 0 0 calc(100dvh - 58px);
-            overflow: hidden;
+            min-height: 0;
+            flex: 1 1 auto;
+            overflow-x: hidden;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
           }
 
           .center-scroll-wrapper {
             width: 100%;
             min-width: 0;
-            height: 100%;
-            max-height: 100%;
-            overflow: hidden;
+            height: auto;
+            max-height: none;
+            overflow: visible;
             padding-right: 0;
+            flex: 0 0 auto;
           }
           .center-column {
             width: 100%;
             min-width: 0;
-            height: 100%;
-            max-height: 100%;
+            height: auto;
+            max-height: none;
             padding-right: 0;
-            padding-bottom: calc(16px + env(safe-area-inset-bottom));
+            padding-bottom: 0;
             gap: 14px;
-            overflow-y: auto;
-            overflow-x: hidden;
+            overflow: visible;
           }
 
           .right-col {
+            width: 100%;
+            min-width: 0;
             height: auto;
+            max-height: none;
             overflow: visible;
+            flex: 0 0 auto;
+            padding-bottom: calc(16px + env(safe-area-inset-bottom));
           }
         }
 

@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { RowDataPacket } from "mysql2";
-import pool from "@/config/db";
 import { getCurrentUserId } from "@/app/api/notifications/helpers";
 import { getAssistantReply } from "@/app/api/lib/groq";
 import { blocksFromToolCalls } from "@/app/api/lib/assistantContent";
 import type { AssistantBlock } from "@/app/lib/assistantBlocks";
+import { getPool } from "@/config/db";
 
 type AssistantIntent = "general";
 
@@ -22,6 +22,7 @@ type UserRow = RowDataPacket & {
   username: string;
 };
 async function resolveEmployeeByUserId(userId: number) {
+  const pool = await getPool();
   const [rows] = await pool.execute<UserRow[]>(
     `
       SELECT userid, username
