@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import pool from "@/config/db";
+import {getPool} from "@/config/db";
 import { randomUUID } from "crypto";
 
 export async function POST(req: NextRequest) {
   try {
-   const { postId, content, parentId } = await req.json();
+    const pool = await getPool();
+    const { postId, content, parentId } = await req.json();
 
     const token = req.cookies.get("access_token")?.value;
     const decoded = JSON.parse(

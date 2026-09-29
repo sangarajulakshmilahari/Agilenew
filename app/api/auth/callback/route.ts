@@ -1,5 +1,5 @@
   import keycloak from "../../lib/keycloak";
-  import pool from "../../../../config/db";
+  import {getPool} from "../../../../config/db";
 
   export async function GET(req: Request) {
     try {
@@ -21,7 +21,7 @@
           grant_type: "authorization_code",
           client_id: process.env.KEYCLOAK_CLIENT_ID!,
           client_secret: process.env.KEYCLOAK_CLIENT_SECRET!,
-          redirect_uri: process.env.KEYCLOAK_REDIRECT_URI!,
+          redirect_uri: process.env.KEYCLOAK_REDIRECT_URL!,
           code,
         }),
       });
@@ -47,6 +47,7 @@
       const lastName = decodedPayload.family_name || "";
 
       // 🔥 Step 1: Check if user already exists by email
+      const pool = await getPool();
       const [existingUsers]: any = await pool.execute(
         `SELECT userid, username FROM users WHERE email = ?`,
         [email],

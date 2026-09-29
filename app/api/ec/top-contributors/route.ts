@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
-import pool from "@/config/db";
+import {getPool} from "@/config/db";
 
 export async function GET() {
   try {
+    const pool = await getPool();
     const [rows]: any = await pool.execute(`
       SELECT 
         u.userid,

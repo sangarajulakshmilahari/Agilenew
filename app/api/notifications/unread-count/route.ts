@@ -1,5 +1,6 @@
+
 import { NextRequest, NextResponse } from "next/server";
-import pool from "@/config/db";
+import {getPool} from "@/config/db";
 import { ensureNotificationsTable, getCurrentUserId } from "@/app/api/notifications/helpers";
 
 export async function GET(req: NextRequest) {
@@ -11,6 +12,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const pool = await getPool();
     const [rows]: any = await pool.execute(
       `SELECT COUNT(*) AS unreadCount
        FROM notifications

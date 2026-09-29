@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import pool from "@/config/db";
+import {getPool} from "@/config/db";
 import { ensureNotificationsTable, getCurrentUserId } from "@/app/api/notifications/helpers";
 
 export async function GET(req: NextRequest) {
@@ -14,6 +14,7 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const limit = Math.min(Math.max(Number(searchParams.get("limit") || 10), 1), 50);
 
+    const pool = await getPool();
     const [rows]: any = await pool.query(
       `SELECT id, type, title, message, entity_type, entity_id, action_url, is_read, created_at
        FROM notifications

@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
-import pool from "../../../config/db";
+import {getPool} from "../../../config/db";
 
 export async function GET() {
   try {
-   const [rows] = await pool.query(`
+    const pool = await getPool();
+    const [rows] = await pool.query(`
       SELECT slno, employee, email, display_date AS date_of_birth
       FROM (
         SELECT

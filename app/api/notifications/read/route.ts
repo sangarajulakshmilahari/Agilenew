@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import pool from "@/config/db";
+import {getPool} from "@/config/db";
 import { ensureNotificationsTable, getCurrentUserId } from "@/app/api/notifications/helpers";
 
 export async function PATCH(req: NextRequest) {
@@ -17,6 +17,7 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: "notificationId is required" }, { status: 400 });
     }
 
+    const pool = await getPool();
     const [result]: any = await pool.execute(
       `UPDATE notifications
        SET is_read = 1, read_at = NOW()

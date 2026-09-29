@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { ResultSetHeader, RowDataPacket } from "mysql2";
-import pool from "@/config/db";
+import {getPool} from "@/config/db";
 import { requirePortalManager } from "@/app/api/lib/requireHr";
 
 type ValueRow = RowDataPacket & {
@@ -60,11 +60,14 @@ export async function POST(req: NextRequest) {
     }
 
     if (displayOrder == null) {
+      const pool = await getPool();
       const [maxRows] = await pool.execute<RowDataPacket[]>(
         "SELECT COALESCE(MAX(DisplayOrder), 0) AS maxOrder FROM portal_values",
       );
       displayOrder = Number(maxRows[0]?.maxOrder || 0) + 1;
     }
+
+    const pool = await getPool();
 
     const [result] = await pool.execute<ResultSetHeader>(
       `
@@ -134,6 +137,7 @@ export async function PUT(req: NextRequest) {
       }
     }
 
+    const pool = await getPool();
     const [existingRows] = await pool.execute<ValueRow[]>(
       `
       SELECT ValueId, ValueText, DisplayOrder
@@ -196,6 +200,7 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: "valueId is required" }, { status: 400 });
     }
 
+    const pool = await getPool();
     const [existingRows] = await pool.execute<RowDataPacket[]>(
       "SELECT ValueId FROM portal_values WHERE ValueId = ? LIMIT 1",
       [valueId],

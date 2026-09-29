@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { RowDataPacket } from "mysql2";
-import pool from "@/config/db";
+import {getPool} from "@/config/db";
 import { canCreateEvent, canManagePortal, normalizeRole } from "@/app/lib/permissions";
 
 type AuthSuccess = { userId: number; roles: string[] };
@@ -27,6 +27,7 @@ async function resolveUserRoles(
       };
     }
 
+    const pool = await getPool();
     const [userRows] = await pool.execute<RowDataPacket[]>(
       "SELECT userid FROM users WHERE keycloak_id = ?",
       [keycloakId],

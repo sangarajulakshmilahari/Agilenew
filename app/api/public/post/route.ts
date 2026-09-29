@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import pool from "@/config/db";
+import {getPool} from "@/config/db";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
+
+  const pool = await getPool();
 
   try {
     const [rows]: any = await pool.execute(`

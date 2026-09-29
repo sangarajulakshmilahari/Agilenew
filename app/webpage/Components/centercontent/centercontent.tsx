@@ -606,6 +606,11 @@ export default function CenterContent({
           flex-direction: column;
           gap: 18px;
         }
+        @media (max-height: 800px) {
+          .center-wrapper {
+            gap: 12px;
+          }
+        }
         .center-column {
           max-width: 100%;
           width: 100%;

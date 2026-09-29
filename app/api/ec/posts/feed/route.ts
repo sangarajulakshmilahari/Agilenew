@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import pool from "@/config/db";
+import {getPool} from "@/config/db";
 
 /* ✅ Build comment tree (moved outside for clean code) */
 const buildTree = (comments: any[]) => {
@@ -36,6 +36,7 @@ export async function GET(req: NextRequest) {
       );
       const keycloakId = decoded.sub;
 
+      const pool = await getPool();
       const [userRows]: any = await pool.execute(
         "SELECT userid FROM users WHERE keycloak_id = ?",
         [keycloakId]
@@ -47,6 +48,7 @@ export async function GET(req: NextRequest) {
     }
 
     /* 📝 Get all posts */
+    const pool = await getPool();
     const [posts]: any = await pool.execute(`
       SELECT 
         p.id,

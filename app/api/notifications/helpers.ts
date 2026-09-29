@@ -1,8 +1,9 @@
 import { NextRequest } from "next/server";
-import pool from "@/config/db";
+import {getPool} from "@/config/db";
 import { randomUUID } from "crypto";
 
 export async function ensureNotificationsTable() {
+  const pool = await getPool();
   await pool.execute(`
     CREATE TABLE IF NOT EXISTS notifications (
       id VARCHAR(36) PRIMARY KEY,
@@ -67,6 +68,7 @@ export async function getCurrentUserId(req: NextRequest): Promise<number | null>
   const keycloakId = decoded?.sub;
   if (!keycloakId) return null;
 
+  const pool = await getPool();
   const [rows]: any = await pool.execute(
     "SELECT userid FROM users WHERE keycloak_id = ? LIMIT 1",
     [keycloakId],
@@ -84,7 +86,7 @@ export async function notifyArticlePublished(params: {
   const { authorUserId, title, articleId } = params;
 
   await ensureNotificationsTable();
-
+  const pool = await getPool();
   const [eligibleUsers]: any = await pool.execute(
     `SELECT DISTINCT u.userid
      FROM users u

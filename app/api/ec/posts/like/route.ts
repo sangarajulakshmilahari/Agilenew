@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import pool from "@/config/db";
+import {getPool} from "@/config/db";
 import { randomUUID } from "crypto";
 
 export async function POST(req: NextRequest) {
@@ -13,6 +13,7 @@ export async function POST(req: NextRequest) {
 
     const keycloakId = decoded.sub;
 
+    const pool = await getPool();
     const [userRows]: any = await pool.execute(
       "SELECT userid FROM users WHERE keycloak_id = ?",
       [keycloakId]

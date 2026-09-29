@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { ResultSetHeader, RowDataPacket } from "mysql2";
-import pool from "@/config/db";
+import {getPool} from "@/config/db";
 import { canCreateEvent } from "@/app/lib/permissions";
 
 type EventRow = RowDataPacket & {
@@ -48,6 +48,7 @@ async function getAuthenticatedUserId(req: NextRequest): Promise<number | null> 
     const keycloakId = decoded?.sub;
     if (!keycloakId) return null;
 
+    const pool = await getPool();
     const [userRows] = await pool.execute<RowDataPacket[]>(
       "SELECT userid FROM users WHERE keycloak_id = ?",
       [keycloakId],
@@ -62,6 +63,7 @@ async function getAuthenticatedUserId(req: NextRequest): Promise<number | null> 
 
 export async function GET() {
   try {
+    const pool = await getPool();
     const [rows] = await pool.execute<EventRow[]>(
       `
       SELECT EventId, EventName, EventType, DATE_FORMAT(EventDate, '%Y-%m-%d') AS EventDate, Location, Description
@@ -93,6 +95,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const pool = await getPool();
     const [roleRows] = await pool.execute<RowDataPacket[]>(
       `
       SELECT LOWER(r.role_name) AS role_name

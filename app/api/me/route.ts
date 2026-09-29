@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { RowDataPacket } from "mysql2";
-import pool from "../../../config/db";
+import {getPool} from "../../../config/db";
 
 type AppRow = RowDataPacket & {
   username: string;
@@ -43,6 +43,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
+    const pool = await getPool();
     const [roleRows] = await pool.execute<RoleRow[]>(
       `
       SELECT r.role_name
